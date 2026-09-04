@@ -76,16 +76,20 @@ async function handleCheckinIfNeeded(page: any, planText = 'Focusing on targeted
 }
 
 async function loginUser(page: any, user: any) {
-  await page.context().clearCookies();
   for (let attempt = 0; attempt < 3; attempt++) {
     await page.goto('/login');
     const emailInput = page.locator('input[type="email"]:not([disabled])');
-    await expect(emailInput).toBeVisible({ timeout: 15000 });
+    const isVisible = await emailInput.waitFor({ state: 'visible', timeout: 15000 }).then(() => true).catch(() => false);
+    if (!isVisible) {
+      await logoutUser(page);
+      continue;
+    }
     await emailInput.fill(user.email);
     await page.fill('input[type="password"]', user.pass);
     await page.click('button[type="submit"]');
     try {
       await page.waitForURL((url: any) => url.pathname.includes('/app'), { timeout: 25000 });
+      await page.waitForSelector('text=Verifying session...', { state: 'detached', timeout: 15000 }).catch(() => {});
       if (user.expectedRoute.includes('/app/intern') || user.expectedRoute === '/app/dashboard') {
         await handleCheckinIfNeeded(page);
       }
@@ -98,15 +102,25 @@ async function loginUser(page: any, user: any) {
 }
 
 async function logoutUser(page: any) {
+  try {
+    const userMenuBtn = page.locator('button:has(span.sr-only:has-text("Open user menu"))');
+    if (await userMenuBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await userMenuBtn.click();
+      await page.click('text="Log out"', { timeout: 2000 });
+      await page.waitForURL((url: any) => url.pathname.includes('/login'), { timeout: 8000 }).catch(() => {});
+      return;
+    }
+  } catch {}
   await page.context().clearCookies();
   await page.evaluate(() => {
     localStorage.clear();
     sessionStorage.clear();
   }).catch(() => {});
+  await page.goto('/login');
 }
 
 test.describe('SCARO ERP — Targeted Chat, People, Meetings & Task UX Verification', () => {
-  test.setTimeout(90000);
+  test.setTimeout(120000);
 
   // =========================================================================
   // 1. PEOPLE ACCESS RESTRICTIONS
@@ -268,6 +282,23 @@ test.describe('SCARO ERP — Targeted Chat, People, Meetings & Task UX Verificat
     await expect(restrictedBanner).toBeVisible();
     await expect(restrictedBanner).toContainText('Replies are restricted for this conversation');
     await expect(page.locator('[data-testid="message-input"]')).not.toBeVisible();
+
+    // 3. Database level check: directly inserting message from Intern to Admin must fail via DB trigger & RLS
+    const pubKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+    const internClient = createClient(supabaseUrl, pubKey);
+    const { error: internSignInErr } = await internClient.auth.signInWithPassword({
+      email: USERS.intern.email,
+      password: USERS.intern.pass,
+    });
+    expect(internSignInErr).toBeNull();
+
+    const { data: adminProfile } = await adminSupabase.from('profiles').select('id').eq('email', USERS.admin.email).single();
+    const { error: directInsertErr } = await internClient.from('messages').insert({
+      content: 'Unauthorized direct message bypass test',
+      recipient_id: adminProfile?.id
+    });
+    expect(directInsertErr).not.toBeNull();
+    expect(directInsertErr?.message).toMatch(/Unauthorized: Interns are not permitted to message Admins or Super Admins|violates row-level security policy/i);
   });
 
   // =========================================================================

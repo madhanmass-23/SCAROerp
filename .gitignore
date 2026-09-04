@@ -30,3 +30,16 @@ test-results
 playwright-report
 blob-report
 supabase/.temp
+
+# Android & Release Artifacts
+*.jks
+*.keystore
+release/
+release-signing.properties
+android/.gradle
+android/build
+android/app/build
+android/.idea
+android/captures
+android/local.properties
+.tools/

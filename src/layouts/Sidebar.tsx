@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { cn } from '../components/ui/Button';
 import { LayoutDashboard, CheckSquare, Briefcase, Calendar, Users, FileText, MessageSquare, Bell, Shield, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../features/auth/AuthContext';
+import { InstallAppButton } from '../components/pwa/InstallAppButton';
 
 interface SidebarProps {
   isMobileOpen: boolean;
@@ -125,6 +126,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onMobileClose })
             );
           })}
         </nav>
+
+        <div className="px-4 py-2 border-t border-border">
+          <InstallAppButton className="w-full" />
+        </div>
 
         <div className="p-4 border-t border-border flex items-center">
           <div className="flex-shrink-0">

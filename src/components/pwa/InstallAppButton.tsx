@@ -103,7 +103,7 @@ export const InstallAppButton: React.FC<{ className?: string }> = ({ className =
           className="h-4 w-4 object-contain rounded-xs bg-[#fbf7f2] shrink-0"
         />
         <Download className="h-4 w-4 shrink-0 text-primary" />
-        <span>Install SCARO ERP App</span>
+        <span>Install SCARO ERP</span>
       </button>
 
       {/* Fallback Instructional Modal */}

@@ -34,10 +34,24 @@ const USERS = {
     expectedRoute: '/app/dashboard',
     role: 'Employee'
   },
+  employee2: {
+    name: 'Elumalai',
+    email: 'elumalai@scaro.com',
+    pass: 'Scaro@Elumalai2026!',
+    expectedRoute: '/app/dashboard',
+    role: 'Employee'
+  },
   intern: {
     name: 'Maheswari',
     email: 'maheswari@scaro.com',
     pass: 'Scaro@Maheswari2026!',
+    expectedRoute: '/app/intern/dashboard',
+    role: 'Intern'
+  },
+  intern2: {
+    name: 'Nikitha',
+    email: 'nikitha@scaro.com',
+    pass: 'Scaro@Nikitha2026!',
     expectedRoute: '/app/intern/dashboard',
     role: 'Intern'
   }
@@ -136,94 +150,124 @@ test.describe('SCARO ERP — Targeted Chat, People, Meetings & Task UX Verificat
   });
 
   // =========================================================================
-  // 2. MESSAGES: DIRECT 1-TO-1, CONTACT SEARCH & PERSISTENCE
+  // 2. MESSAGES: ROLE-BASED CONTACT VISIBILITY & DIRECTIONAL MESSAGING
   // =========================================================================
-  test('Messages: Employee can view authorized contacts and dynamically search by name/email', async ({ page }) => {
+  test('Messages Visibility: Employee sees all company roles (Intern, Employee, Admin, Super Admin)', async ({ page }) => {
     await loginUser(page, USERS.employee);
     await page.goto('/app/messages');
 
-    // Verify Contacts list is visible with authorized company members by default
     const contactsList = page.locator('[data-testid="contacts-list"]');
     await expect(contactsList).toBeVisible({ timeout: 15000 });
 
-    // Should list contacts without searching
-    const contactItems = page.locator('[data-testid^="contact-item-"]');
-    await expect(contactItems.first()).toBeVisible({ timeout: 10000 });
-    const count = await contactItems.count();
-    expect(count).toBeGreaterThan(0);
-
-    // Dynamic search by name
     const searchInput = page.locator('[data-testid="messages-search-input"]');
+
+    // 1. Employee sees Admin (Kumar)
     await searchInput.fill('Kumar');
+    await expect(page.locator('#contact-kumar')).toBeVisible();
 
-    const filteredByName = page.locator('[data-testid^="contact-item-"]');
-    await expect(filteredByName.first()).toContainText(/Kumar/i);
-    const filteredCount = await filteredByName.count();
-    expect(filteredCount).toBeGreaterThan(0);
+    // 2. Employee sees Intern (Maheswari)
+    await searchInput.fill('Maheswari');
+    await expect(page.locator('#contact-maheswari')).toBeVisible();
 
-    // Dynamic search by email
-    await searchInput.fill('maheswari@scaro.com');
-    const filteredByEmail = page.locator('#contact-maheswari');
-    await expect(filteredByEmail).toBeVisible();
-    await expect(filteredByEmail).toContainText(/Maheswari/i);
+    // 3. Employee sees Super Admin (Satish)
+    await searchInput.fill('Satish');
+    await expect(page.locator('#contact-satishkumar')).toBeVisible();
+
+    // 4. Employee sees colleague Employee (Elumalai)
+    await searchInput.fill('Elumalai');
+    await expect(page.locator('#contact-elumalai')).toBeVisible();
   });
 
-  test('Messages: Intern can view contacts and dynamically search', async ({ page }) => {
+  test('Messages Visibility: Intern by default ONLY sees Employees and Interns; Admins are hidden', async ({ page }) => {
     await loginUser(page, USERS.intern);
     await page.goto('/app/messages');
 
     const contactsList = page.locator('[data-testid="contacts-list"]');
     await expect(contactsList).toBeVisible({ timeout: 15000 });
 
-    // Dynamic search for Employee Madhan
     const searchInput = page.locator('[data-testid="messages-search-input"]');
-    await searchInput.fill('Madhan');
 
-    const filtered = page.locator('#contact-madhan');
-    await expect(filtered).toBeVisible();
-    await expect(filtered).toContainText(/Madhan/i);
+    // 1. Intern sees Employee (Madhan)
+    await searchInput.fill('Madhan');
+    await expect(page.locator('#contact-madhan')).toBeVisible();
+
+    // 2. Intern sees another Intern (Nikitha)
+    await searchInput.fill('Nikitha');
+    await expect(page.locator('#contact-nikitha')).toBeVisible();
   });
 
-  test('Messages: 1-to-1 direct chat persistence between Admin and Intern', async ({ page }) => {
-    const testMessageContent = `Test message from Admin to Intern at ${Date.now()}`;
+  test('Messages Communication: Intern can send direct messages to Employee and Intern', async ({ page }) => {
+    const testMsg = `Intern to Employee message at ${Date.now()}`;
+
+    // 1. Intern Maheswari messages Employee Madhan
+    await loginUser(page, USERS.intern);
+    await page.goto('/app/messages');
+
+    const empContact = page.locator('#contact-madhan');
+    await expect(empContact).toBeVisible({ timeout: 15000 });
+    await empContact.click();
+
+    // Message composer must be enabled
+    const messageInput = page.locator('[data-testid="message-input"]');
+    await expect(messageInput).toBeVisible({ timeout: 10000 });
+    await messageInput.fill(testMsg);
+    await page.click('[data-testid="send-message-btn"]');
+
+    await expect(page.locator('[data-testid="chat-messages-container"]').locator(`text="${testMsg}"`)).toBeVisible({ timeout: 10000 });
+
+    await logoutUser(page);
+
+    // 2. Employee Madhan logs in and replies to Intern
+    await loginUser(page, USERS.employee);
+    await page.goto('/app/messages');
+
+    const internContact = page.locator('#contact-maheswari');
+    await expect(internContact).toBeVisible({ timeout: 10000 });
+    await internContact.click();
+
+    await expect(page.locator('[data-testid="chat-messages-container"]').locator(`text="${testMsg}"`)).toBeVisible({ timeout: 10000 });
+    const replyMsg = `Employee reply to Intern at ${Date.now()}`;
+    await page.fill('[data-testid="message-input"]', replyMsg);
+    await page.click('[data-testid="send-message-btn"]');
+    await expect(page.locator('[data-testid="chat-messages-container"]').locator(`text="${replyMsg}"`)).toBeVisible({ timeout: 10000 });
+  });
+
+  test('Messages Management → Intern: Admin can message Intern; Intern composer is restricted with notice', async ({ page }) => {
+    const adminMsg = `Management directive from Admin to Intern at ${Date.now()}`;
 
     // 1. Admin sends message to Intern Maheswari
     await loginUser(page, USERS.admin);
     await page.goto('/app/messages');
 
-    // Find and select Intern Maheswari
     const internContact = page.locator('#contact-maheswari');
     await expect(internContact).toBeVisible({ timeout: 10000 });
     await internContact.click();
 
-    // Verify Chat panel is open
     const messageInput = page.locator('[data-testid="message-input"]');
     await expect(messageInput).toBeVisible({ timeout: 10000 });
-    await messageInput.fill(testMessageContent);
+    await messageInput.fill(adminMsg);
     await page.click('[data-testid="send-message-btn"]');
 
-    // Verify message appears in conversation
-    await expect(page.locator('[data-testid="chat-messages-container"]').locator(`text="${testMessageContent}"`)).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="chat-messages-container"]').locator(`text="${adminMsg}"`)).toBeVisible({ timeout: 10000 });
 
     await logoutUser(page);
 
-    // 2. Intern logs in and verifies receiving the message
+    // 2. Intern logs in, views Admin message, but reply composer is RESTRICTED
     await loginUser(page, USERS.intern);
     await page.goto('/app/messages');
 
-    // Click on Admin Kumar in contacts list
     const adminContact = page.locator('#contact-kumar');
     await expect(adminContact).toBeVisible({ timeout: 10000 });
     await adminContact.click();
 
-    // Verify received message content is visible in conversation
-    await expect(page.locator('[data-testid="chat-messages-container"]').locator(`text="${testMessageContent}"`)).toBeVisible({ timeout: 10000 });
+    // Verify received message is visible
+    await expect(page.locator('[data-testid="chat-messages-container"]').locator(`text="${adminMsg}"`)).toBeVisible({ timeout: 10000 });
 
-    // 3. Intern replies to Admin
-    const replyContent = `Reply from Intern at ${Date.now()}`;
-    await page.fill('[data-testid="message-input"]', replyContent);
-    await page.click('[data-testid="send-message-btn"]');
-    await expect(page.locator('[data-testid="chat-messages-container"]').locator(`text="${replyContent}"`)).toBeVisible({ timeout: 10000 });
+    // Verify composer is restricted / disabled
+    const restrictedBanner = page.locator('[data-testid="replies-restricted-banner"]');
+    await expect(restrictedBanner).toBeVisible();
+    await expect(restrictedBanner).toContainText('Replies are restricted for this conversation');
+    await expect(page.locator('[data-testid="message-input"]')).not.toBeVisible();
   });
 
   // =========================================================================

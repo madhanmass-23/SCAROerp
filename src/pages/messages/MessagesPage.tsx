@@ -1,40 +1,19 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button, cn } from '../../components/ui/Button';
-import { MessageSquare, Send, Search, ArrowLeft, Check, CheckCheck } from 'lucide-react';
+import { MessageSquare, Send, Search, ArrowLeft, Check, CheckCheck, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../features/auth/AuthContext';
-
-export interface ContactProfile {
-  id: string;
-  full_name: string;
-  email: string;
-  avatar_url?: string;
-  designation?: string;
-  department?: string;
-  role?: string;
-  last_message?: {
-    id: string;
-    content: string;
-    created_at: string;
-    is_read: boolean;
-    sender_id: string;
-  };
-  unread_count?: number;
-}
-
-export interface MessageItem {
-  id: string;
-  content: string;
-  created_at: string;
-  sender_id: string;
-  recipient_id: string;
-  is_read: boolean;
-  sender?: { full_name: string; avatar_url?: string };
-}
+import {
+  type ContactProfile,
+  type MessageItem,
+  fetchAuthorizedContacts,
+  sendDirectMessage,
+  canMessageUser
+} from '../../services/messageService';
 
 export const MessagesPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [contacts, setContacts] = useState<ContactProfile[]>([]);
   const [contactsLoading, setContactsLoading] = useState(true);
@@ -43,105 +22,27 @@ export const MessagesPage: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch authorized company contacts by default
-  const fetchAuthorizedContacts = useCallback(async () => {
+  // Load authorized contacts according to user role
+  const loadContacts = useCallback(async () => {
     if (!user) return;
     try {
       setContactsLoading(true);
-
-      // 1. Fetch all active company profiles (authorized users only, excluding current user)
-      const { data: profiles, error: pErr } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, avatar_url, designation, is_active, department:departments!profiles_department_id_fkey(name)')
-        .eq('is_active', true)
-        .neq('id', user.id);
-
-      if (pErr) throw pErr;
-
-      // 2. Fetch roles for all users
-      const { data: userRolesData, error: rErr } = await supabase
-        .from('user_roles')
-        .select('user_id, roles ( name )');
-
-      if (rErr) console.warn('Could not load user roles for contacts:', rErr);
-
-      const rolesMap = new Map<string, string>();
-      userRolesData?.forEach((ur: any) => {
-        const roleName = Array.isArray(ur.roles) ? ur.roles[0]?.name : ur.roles?.name;
-        if (roleName) rolesMap.set(ur.user_id, roleName);
-      });
-
-      // 3. Fetch recent direct messages for the current user to build snippets and unread state
-      const { data: msgsData, error: mErr } = await supabase
-        .from('messages')
-        .select('id, sender_id, recipient_id, content, created_at, is_read')
-        .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
-        .order('created_at', { ascending: false })
-        .limit(300);
-
-      if (mErr) console.warn('Could not load message summaries:', mErr);
-
-      const lastMsgMap = new Map<string, { id: string; content: string; created_at: string; is_read: boolean; sender_id: string }>();
-      const unreadCountMap = new Map<string, number>();
-
-      (msgsData || []).forEach((m: any) => {
-        const partnerId = m.sender_id === user.id ? m.recipient_id : m.sender_id;
-        if (!partnerId) return;
-
-        // Keep the latest message per partner
-        if (!lastMsgMap.has(partnerId)) {
-          lastMsgMap.set(partnerId, {
-            id: m.id,
-            content: m.content,
-            created_at: m.created_at,
-            is_read: m.is_read,
-            sender_id: m.sender_id,
-          });
-        }
-
-        // Count unread messages sent to current user
-        if (m.recipient_id === user.id && !m.is_read) {
-          unreadCountMap.set(partnerId, (unreadCountMap.get(partnerId) || 0) + 1);
-        }
-      });
-
-      // 4. Map into full ContactProfile objects
-      const contactList: ContactProfile[] = (profiles || []).map((p: any) => ({
-        id: p.id,
-        full_name: p.full_name || p.email.split('@')[0],
-        email: p.email,
-        avatar_url: p.avatar_url || undefined,
-        designation: p.designation || undefined,
-        department: (p.department as any)?.name || undefined,
-        role: rolesMap.get(p.id) || 'Member',
-        last_message: lastMsgMap.get(p.id),
-        unread_count: unreadCountMap.get(p.id) || 0,
-      }));
-
-      // 5. Sort: contacts with active messages first (latest first), then alphabetical
-      contactList.sort((a, b) => {
-        if (a.last_message && b.last_message) {
-          return new Date(b.last_message.created_at).getTime() - new Date(a.last_message.created_at).getTime();
-        }
-        if (a.last_message) return -1;
-        if (b.last_message) return 1;
-        return a.full_name.localeCompare(b.full_name);
-      });
-
-      setContacts(contactList);
+      const list = await fetchAuthorizedContacts(user.id, role);
+      setContacts(list);
     } catch (err) {
       console.error('Failed to load authorized contacts:', err);
     } finally {
       setContactsLoading(false);
     }
-  }, [user]);
+  }, [user, role]);
 
   useEffect(() => {
     if (!user) return;
-    fetchAuthorizedContacts();
-  }, [user, fetchAuthorizedContacts]);
+    loadContacts();
+  }, [user, loadContacts]);
 
   // Handle URL deep-linking (?userId=...)
   const urlUserId = searchParams.get('userId');
@@ -227,11 +128,15 @@ export const MessagesPage: React.FC = () => {
             }
           }
 
-          // Update contacts snippet and ordering
+          // Update contacts snippet, ordering, and ensure new conversation appears
           const partnerId = newMsg.sender_id === user.id ? newMsg.recipient_id : newMsg.sender_id;
           setContacts(prev => {
             const index = prev.findIndex(c => c.id === partnerId);
-            if (index === -1) return prev;
+            if (index === -1) {
+              // Reload contacts if an inbound conversation was initiated
+              loadContacts();
+              return prev;
+            }
 
             const updatedContact = {
               ...prev[index],
@@ -258,14 +163,14 @@ export const MessagesPage: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, selectedUser]);
+  }, [user, selectedUser, loadContacts]);
 
   // Scroll to bottom when messages update
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Dynamic search filtering by name or email
+  // Dynamic search filtering by name, email, department, or role
   const filteredContacts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return contacts;
@@ -273,7 +178,8 @@ export const MessagesPage: React.FC = () => {
       c.full_name.toLowerCase().includes(q) ||
       c.email.toLowerCase().includes(q) ||
       (c.designation && c.designation.toLowerCase().includes(q)) ||
-      (c.role && c.role.toLowerCase().includes(q))
+      (c.role && c.role.toLowerCase().includes(q)) ||
+      (c.department && c.department.toLowerCase().includes(q))
     );
   }, [contacts, searchQuery]);
 
@@ -287,31 +193,37 @@ export const MessagesPage: React.FC = () => {
     setSearchParams({});
   };
 
+  // Determine if messaging/replying is permitted for the selected conversation
+  const canReplyToSelected = useMemo(() => {
+    if (!selectedUser) return false;
+    return canMessageUser(role, selectedUser.role);
+  }, [role, selectedUser]);
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!newMessage.trim() || !user || !selectedUser) return;
+    if (!newMessage.trim() || !user || !selectedUser || sending) return;
+
+    if (!canReplyToSelected) {
+      alert('Replies are restricted for this conversation.');
+      return;
+    }
 
     const content = newMessage.trim();
     setNewMessage('');
+    setSending(true);
 
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          content,
-          sender_id: user.id,
-          recipient_id: selectedUser.id,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        setNewMessage(content);
-        throw error;
-      }
+      const data = await sendDirectMessage(
+        user.id,
+        selectedUser.id,
+        content,
+        role,
+        selectedUser.role
+      );
 
       if (data) {
-        setMessages(prev => (prev.some(m => m.id === data.id) ? prev : [...prev, data as MessageItem]));
+        setMessages(prev => (prev.some(m => m.id === data.id) ? prev : [...prev, data]));
+        
         // Update contact last message
         setContacts(prev => {
           const idx = prev.findIndex(c => c.id === selectedUser.id);
@@ -331,9 +243,12 @@ export const MessagesPage: React.FC = () => {
           return [updated, ...next];
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to send message:', err);
-      alert('Failed to send message. Please try again.');
+      setNewMessage(content);
+      alert(err.message || 'Failed to send message. Please try again.');
+    } finally {
+      setSending(false);
     }
   };
 
@@ -344,8 +259,8 @@ export const MessagesPage: React.FC = () => {
     }
   };
 
-  const getRoleBadgeColor = (role?: string) => {
-    switch (role) {
+  const getRoleBadgeColor = (userRole?: string) => {
+    switch (userRole) {
       case 'Super Admin':
         return 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200';
       case 'Admin':
@@ -392,7 +307,7 @@ export const MessagesPage: React.FC = () => {
                 id="messages-search-input"
                 data-testid="messages-search-input"
                 type="text"
-                placeholder="Search colleagues by name or email..."
+                placeholder="Search colleagues by name, email, role..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-surface-muted border border-border rounded-lg text-xs sm:text-sm text-content placeholder:text-content-muted focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
@@ -554,7 +469,9 @@ export const MessagesPage: React.FC = () => {
                     </div>
                     <p className="font-medium text-sm text-content">Direct Message with {selectedUser.full_name}</p>
                     <p className="text-xs text-content-muted text-center max-w-xs">
-                      Send a secure direct message to start this 1-to-1 conversation.
+                      {canReplyToSelected
+                        ? 'Send a secure direct message to start this 1-to-1 conversation.'
+                        : 'Replies are restricted for this conversation.'}
                     </p>
                   </div>
                 ) : (
@@ -605,32 +522,43 @@ export const MessagesPage: React.FC = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Message Input Area */}
-              <div className="p-2.5 sm:p-3 border-t border-border bg-surface shrink-0">
-                <form onSubmit={handleSendMessage} className="flex gap-2 items-end">
-                  <textarea
-                    id="message-input"
-                    data-testid="message-input"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={`Message ${selectedUser.full_name}...`}
-                    className="flex-1 rounded-xl border border-border bg-surface-muted px-3.5 py-2.5 text-xs sm:text-sm text-content focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none min-h-[42px] max-h-28"
-                    rows={1}
-                  />
-                  <Button
-                    id="send-message-btn"
-                    data-testid="send-message-btn"
-                    type="submit"
-                    variant="primary"
-                    disabled={!newMessage.trim()}
-                    className="rounded-xl h-[42px] w-[42px] p-0 flex items-center justify-center shrink-0"
-                    aria-label="Send Message"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </form>
-              </div>
+              {/* Message Composer or Restricted Banner */}
+              {canReplyToSelected ? (
+                <div className="p-2.5 sm:p-3 border-t border-border bg-surface shrink-0">
+                  <form onSubmit={handleSendMessage} className="flex gap-2 items-end">
+                    <textarea
+                      id="message-input"
+                      data-testid="message-input"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder={`Message ${selectedUser.full_name}...`}
+                      className="flex-1 rounded-xl border border-border bg-surface-muted px-3.5 py-2.5 text-xs sm:text-sm text-content focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none min-h-[42px] max-h-28"
+                      rows={1}
+                    />
+                    <Button
+                      id="send-message-btn"
+                      data-testid="send-message-btn"
+                      type="submit"
+                      variant="primary"
+                      disabled={!newMessage.trim() || sending}
+                      className="rounded-xl h-[42px] w-[42px] p-0 flex items-center justify-center shrink-0"
+                      aria-label="Send Message"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </form>
+                </div>
+              ) : (
+                <div 
+                  id="replies-restricted-banner"
+                  data-testid="replies-restricted-banner"
+                  className="p-3.5 bg-surface-muted border-t border-border flex items-center justify-center gap-2 text-xs text-content-muted"
+                >
+                  <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                  <span className="font-medium">Replies are restricted for this conversation.</span>
+                </div>
+              )}
             </>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-content-muted bg-surface-muted/20 p-6 text-center">

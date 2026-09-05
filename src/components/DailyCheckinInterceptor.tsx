@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/Card';
 import { Button } from './ui/Button';
 import { LoadingState } from './ui/LoadingState';
+import { getTimeGreeting } from '../utils/greeting';
+import { extractWorkDone, formatReportNotes } from '../utils/dailyReport';
 
 export const DailyCheckinInterceptor: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, profile, role, loading: authLoading } = useAuth();
@@ -12,6 +14,17 @@ export const DailyCheckinInterceptor: React.FC<{ children: React.ReactNode }> = 
   const [submitting, setSubmitting] = useState(false);
   const [plan, setPlan] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [greeting, setGreeting] = useState(() => getTimeGreeting());
+
+  useEffect(() => {
+    // Keep greeting updated dynamically if user keeps page open across time boundaries
+    const interval = setInterval(() => {
+      setGreeting(getTimeGreeting());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     async function checkDailyReport() {
@@ -78,18 +91,37 @@ export const DailyCheckinInterceptor: React.FC<{ children: React.ReactNode }> = 
          });
       }
 
-      // Create the daily report draft
-      const { error: insertErr } = await supabase
+      // Create or update the daily report draft for today
+      const { data: existingReport } = await supabase
         .from('daily_reports')
-        .insert({
-          user_id: user!.id,
-          report_date: today,
-          status: 'Draft',
-          notes: `Today's Plan: ${plan}`,
-          tomorrow_plan: plan
-        });
+        .select('id, notes, tomorrow_plan')
+        .eq('user_id', user!.id)
+        .eq('report_date', today)
+        .maybeSingle();
 
-      if (insertErr) throw insertErr;
+      if (existingReport) {
+        const existingWork = extractWorkDone(existingReport.notes);
+        const updatedNotes = formatReportNotes(plan.trim(), existingWork);
+        const { error: updateErr } = await supabase
+          .from('daily_reports')
+          .update({
+            notes: updatedNotes,
+            // Keep existing tomorrow_plan if any was previously entered, never copy today's plan
+          })
+          .eq('id', existingReport.id);
+        if (updateErr) throw updateErr;
+      } else {
+        const { error: insertErr } = await supabase
+          .from('daily_reports')
+          .insert({
+            user_id: user!.id,
+            report_date: today,
+            status: 'Draft',
+            notes: formatReportNotes(plan.trim(), ''),
+            tomorrow_plan: null
+          });
+        if (insertErr) throw insertErr;
+      }
 
       setSaved(true);
       setTimeout(() => {
@@ -101,8 +133,6 @@ export const DailyCheckinInterceptor: React.FC<{ children: React.ReactNode }> = 
       setSubmitting(false);
     }
   };
-
-  const [saved, setSaved] = useState(false);
 
   if (checking || authLoading) {
     return (
@@ -123,8 +153,8 @@ export const DailyCheckinInterceptor: React.FC<{ children: React.ReactNode }> = 
                <div className="mx-auto bg-primary/10 w-14 h-14 rounded-full flex items-center justify-center mb-3 text-primary text-xl font-bold">
                  {firstName.charAt(0).toUpperCase()}
                </div>
-               <CardTitle className="text-2xl font-bold text-content">
-                 Good Morning, {firstName}!
+               <CardTitle className="text-2xl font-bold text-content" data-testid="daily-checkin-greeting">
+                 {greeting}, {firstName}!
                </CardTitle>
                <p className="text-content-muted text-xs sm:text-sm mt-1">
                  Let's align on today's priorities before you begin.

@@ -19,8 +19,7 @@ import {
   AlertCircle,
   Linkedin,
   Github,
-  ExternalLink,
-  ShieldCheck
+  ExternalLink
 } from 'lucide-react';
 
 export const ProfilePage: React.FC = () => {
@@ -364,9 +363,6 @@ export const ProfilePage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Personal & Professional Details</CardTitle>
-                <p className="text-xs text-content-muted mt-1">
-                  Update your contact details and social profiles visible to the team
-                </p>
               </div>
             </div>
           </CardHeader>
@@ -381,9 +377,6 @@ export const ProfilePage: React.FC = () => {
                   required
                   disabled={isSaving}
                 />
-                <span className="text-[11px] text-content-muted mt-1 block">
-                  Your official name displayed across projects and reports
-                </span>
               </div>
 
               <div>
@@ -394,9 +387,6 @@ export const ProfilePage: React.FC = () => {
                   placeholder="+1 555-0199 or +91 9876543210"
                   disabled={isSaving}
                 />
-                <span className="text-[11px] text-content-muted mt-1 block">
-                  Optional contact number for urgent team communications
-                </span>
               </div>
 
               <div>
@@ -407,9 +397,6 @@ export const ProfilePage: React.FC = () => {
                   placeholder="e.g. linkedin.com/in/username or username"
                   disabled={isSaving}
                 />
-                <span className="text-[11px] text-content-muted mt-1 block">
-                  Connect your professional LinkedIn profile
-                </span>
               </div>
 
               <div>
@@ -420,16 +407,10 @@ export const ProfilePage: React.FC = () => {
                   placeholder="e.g. github.com/username or username"
                   disabled={isSaving}
                 />
-                <span className="text-[11px] text-content-muted mt-1 block">
-                  Connect your developer portfolio or GitHub username
-                </span>
               </div>
             </div>
 
-            <div className="pt-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
-              <span className="text-xs text-content-muted">
-                Changes take effect immediately across all company directories
-              </span>
+            <div className="pt-4 border-t border-border flex justify-end">
               <Button
                 type="submit"
                 isLoading={isSaving}
@@ -450,10 +431,6 @@ export const ProfilePage: React.FC = () => {
             <Lock className="h-4 w-4 text-content-muted" />
             <CardTitle>Organization Assignment</CardTitle>
           </div>
-          <p className="text-xs text-content-muted mt-1 flex items-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-status-success" />
-            These core attributes are securely managed by administrators and cannot be altered directly.
-          </p>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">

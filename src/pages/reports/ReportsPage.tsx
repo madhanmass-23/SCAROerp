@@ -19,6 +19,7 @@ import {
   HelpCircle,
   RefreshCw,
   Search,
+  Target,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../features/auth/AuthContext';
@@ -27,6 +28,7 @@ import { fetchManagementReports } from '../../services/managementService';
 import type { ManagementReportItem, ReportFilterParams } from '../../types/management';
 import { BlockersAndRequirements } from '../../components/management/BlockersAndRequirements';
 import { SyncHealthMonitor } from '../../components/management/SyncHealthMonitor';
+import { extractTodayPlan, extractWorkDone } from '../../utils/dailyReport';
 
 export const ReportsPage: React.FC = () => {
   const { user, role } = useAuth();
@@ -718,19 +720,50 @@ export const ReportsPage: React.FC = () => {
               )}
             </div>
 
-            {/* Narrative & Work Completed */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Today's Plan, Work Completed & Tomorrow's Plan */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Today's Plan */}
               <div>
-                <h3 className="font-semibold text-content border-b border-border pb-1 mb-1.5">Work Done / Notes</h3>
-                <div className="bg-surface p-3 border border-border rounded whitespace-pre-wrap text-content">
-                  {selectedReport.notes || 'None provided.'}
+                <h3 className="font-semibold text-content border-b border-border pb-1 mb-1.5 flex items-center gap-1.5">
+                  <Target className="h-4 w-4 text-primary" /> Today's Plan
+                </h3>
+                <div 
+                  className="bg-surface p-3 border border-border rounded whitespace-pre-wrap text-content min-h-[5rem]"
+                  data-testid="modal-today-plan"
+                >
+                  {extractTodayPlan(selectedReport.notes) || (
+                    <span className="text-content-muted italic">No morning plan submitted</span>
+                  )}
                 </div>
               </div>
 
+              {/* Work Completed */}
               <div>
-                <h3 className="font-semibold text-content border-b border-border pb-1 mb-1.5">Tomorrow's Plan</h3>
-                <div className="bg-surface p-3 border border-border rounded whitespace-pre-wrap text-content">
-                  {selectedReport.tomorrowPlan || 'None provided.'}
+                <h3 className="font-semibold text-content border-b border-border pb-1 mb-1.5 flex items-center gap-1.5">
+                  <FileText className="h-4 w-4 text-primary" /> Work Done / Notes
+                </h3>
+                <div 
+                  className="bg-surface p-3 border border-border rounded whitespace-pre-wrap text-content min-h-[5rem]"
+                  data-testid="modal-work-completed"
+                >
+                  {extractWorkDone(selectedReport.notes) || (
+                    <span className="text-content-muted italic">No work notes logged</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Tomorrow's Plan */}
+              <div>
+                <h3 className="font-semibold text-content border-b border-border pb-1 mb-1.5 flex items-center gap-1.5">
+                  <Clock className="h-4 w-4 text-primary" /> Tomorrow's Plan
+                </h3>
+                <div 
+                  className="bg-surface p-3 border border-border rounded whitespace-pre-wrap text-content min-h-[5rem]"
+                  data-testid="modal-tomorrow-plan"
+                >
+                  {selectedReport.tomorrowPlan || (
+                    <span className="text-content-muted italic">None provided</span>
+                  )}
                 </div>
               </div>
             </div>

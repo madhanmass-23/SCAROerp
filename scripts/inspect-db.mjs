@@ -26,9 +26,9 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function inspect() {
   console.log("--- Testing Messages RLS ---");
-  // 1. Sign in as employee@scaro.com
+  // 1. Sign in as employee@scaro.in
   const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
-    email: 'employee@scaro.com',
+    email: 'employee@scaro.in',
     password: 'Password123!' // From provision script standard
   });
 

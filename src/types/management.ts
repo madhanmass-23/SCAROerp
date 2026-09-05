@@ -1,6 +1,8 @@
 export interface ManagementMetrics {
   totalEmployees: number;
   totalInterns: number;
+  totalAdmins?: number;
+  totalSuperAdmins?: number;
   activeUsers: number;
   checkedInToday: number;
   reportsSubmittedToday: number;
@@ -8,6 +10,19 @@ export interface ManagementMetrics {
   reportedBlockersCount: number;
   activeProjects: number;
   activeTasks: number;
+}
+
+export interface WorkforceTrendsResult {
+  timeline: WorkActivityTrendPoint[];
+  taskDistribution: {
+    completed: number;
+    inProgress: number;
+    pending: number;
+    total: number;
+  };
+  totalReports: number;
+  totalTasksCompleted: number;
+  totalAttendance: number;
 }
 
 export type CorrelationStatus =

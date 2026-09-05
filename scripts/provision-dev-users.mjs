@@ -33,10 +33,10 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 });
 
 const USERS = [
-  { email: 'admin@scaro.com', password: 'Scaro@Admin2026!', full_name: 'Super Admin', role_name: 'Super Admin' },
-  { email: 'manager@scaro.com', password: 'Scaro@Manager2026!', full_name: 'SCARO Administrator', role_name: 'Admin' },
-  { email: 'employee@scaro.com', password: 'Scaro@Employee2026!', full_name: 'SCARO Employee', role_name: 'Employee' },
-  { email: 'intern@scaro.com', password: 'Scaro@Intern2026!', full_name: 'SCARO Intern', role_name: 'Intern' }
+  { email: 'admin@scaro.in', password: 'Scaro@Admin2026!', full_name: 'Super Admin', role_name: 'Super Admin' },
+  { email: 'manager@scaro.in', password: 'Scaro@Manager2026!', full_name: 'SCARO Administrator', role_name: 'Admin' },
+  { email: 'employee@scaro.in', password: 'Scaro@Employee2026!', full_name: 'SCARO Employee', role_name: 'Employee' },
+  { email: 'intern@scaro.in', password: 'Scaro@Intern2026!', full_name: 'SCARO Intern', role_name: 'Intern' }
 ];
 
 async function provisionUsers() {

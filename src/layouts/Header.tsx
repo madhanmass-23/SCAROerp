@@ -5,6 +5,8 @@ import { Avatar } from '../components/ui/Avatar';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthContext';
+import { useToast } from '../components/ui/Toast';
+import { executeAppLogout } from '../services/authWorkflowService';
 
 interface HeaderProps {
   onMobileMenuClick: () => void;
@@ -21,14 +23,10 @@ import {
   triggerDailyReportReminder,
 } from '../services/notificationService';
 
-interface HeaderProps {
-  onMobileMenuClick: () => void;
-  title?: string;
-}
-
 export const Header: React.FC<HeaderProps> = ({ onMobileMenuClick }) => {
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, role } = useAuth();
+  const { showError } = useToast();
   
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -77,8 +75,12 @@ export const Header: React.FC<HeaderProps> = ({ onMobileMenuClick }) => {
   }, [user]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
+    await executeAppLogout({
+      userId: user?.id,
+      role,
+      navigate,
+      onBlockLogout: (msg) => showError(msg),
+    });
   };
   
   const handleItemClick = async (n: NotificationItem) => {
@@ -247,7 +249,7 @@ export const Header: React.FC<HeaderProps> = ({ onMobileMenuClick }) => {
             <div className="border-t border-border mt-1 pt-1">
               <DropdownItem onClick={handleLogout} className="text-status-danger hover:text-red-700 hover:bg-red-50">
                 <div className="flex items-center gap-2">
-                  <LogOut className="h-4 w-4" /> Log out
+                  <LogOut className="h-4 w-4" /> Logout
                 </div>
               </DropdownItem>
             </div>

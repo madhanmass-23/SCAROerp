@@ -10,15 +10,16 @@ This document outlines the core design principles and tokens used in the SCARO E
 ## 2. Color System
 We use a semantic color token system defined in `tailwind.config.js`. Avoid using hardcoded raw hex values or arbitrary colors in components.
 
-- **Primary**: `bg-primary`, `text-primary` (Warm Orange) - Used for primary actions and active states.
-- **Surface**: `bg-surface` (White) and `bg-surface-muted` (Light Gray/Off-white) - Used for backgrounds and cards.
-- **Content**: `text-content` (Charcoal) and `text-content-muted` (Neutral Gray) - Used for text hierarchy.
-- **Border**: `border-border` - Used for subtle separation.
+- **Primary**: `bg-primary`, `text-primary` (`#7B1113`, SCARO Brand Crimson / Burgundy) - Used for primary interactive actions, active states, and brand emphasis.
+- **Secondary / Accent**: `bg-secondary`, `bg-accent`, `text-accent` (`#C59B3F`, SCARO Brand Champagne Gold) - Used for luxury highlights and subtle accents.
+- **Surface**: `bg-surface` (White, `#FFFFFF`) and `bg-surface-muted` (Off-white/Gray-50, `#F9FAFB`) - Used for backgrounds and cards.
+- **Content**: `text-content` (Charcoal, `#1F2937`) and `text-content-muted` (Neutral Slate, `#6B7280`) - Used for text hierarchy.
+- **Border**: `border-border` (`#E5E7EB`) - Used for subtle separation.
 - **Status Colors**: 
-  - `status-success` (Restrained Green)
-  - `status-warning` (Amber)
-  - `status-danger` (Red)
-  - `status-info` (Muted Blue)
+  - `status-success` (Restrained Green, `#059669`)
+  - `status-warning` (Amber, `#D97706`)
+  - `status-danger` (Red, `#DC2626`)
+  - `status-info` (Muted Blue, `#2563EB`)
 
 ## 3. Typography
 - **Font Family**: Inter, Roboto, sans-serif.

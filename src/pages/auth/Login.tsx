@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { Button } from '../../components/ui/Button';
@@ -16,6 +17,7 @@ export const Login: React.FC = () => {
   const { user, role, loading: authLoading, error: authError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const logoutSuccessMessage = (location.state as any)?.logoutSuccessMessage || (location.state as any)?.message;
 
   const getRedirectPath = (userRole: string | null) => {
     switch (userRole) {
@@ -75,6 +77,17 @@ export const Login: React.FC = () => {
           <p className="text-content-muted text-sm">Sign in to your account</p>
         </div>
 
+        {logoutSuccessMessage && !authError && !loginError && (
+          <div 
+            id="attendance-logout-success-banner"
+            data-testid="attendance-logout-success-banner"
+            className="mb-4 p-3 bg-emerald-50 text-emerald-800 text-sm font-medium rounded-lg border border-emerald-200 flex items-center gap-2"
+          >
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span>{logoutSuccessMessage}</span>
+          </div>
+        )}
+
         {authError && (
           <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded border border-red-200">
             {authError}
@@ -94,7 +107,7 @@ export const Login: React.FC = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@scaro.com"
+              placeholder="name@scaro.in"
               required
               disabled={isLoading || authLoading}
             />

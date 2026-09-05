@@ -4,6 +4,7 @@ import { LoadingState } from '../../components/ui/LoadingState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
+import { useToast } from '../../components/ui/Toast';
 import { 
   CheckSquare, 
   MessageSquare, 
@@ -18,8 +19,7 @@ import {
   Search,
   Briefcase,
   Check,
-  ChevronDown,
-  UserCheck
+  ChevronDown
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 import type { Task, TaskStatus, TaskPriority, TaskComment, TaskAttachment, CreateTaskPayload, AssignableUser } from '../../types/task';
@@ -36,10 +36,11 @@ import {
   deleteTaskAttachment,
   fetchAssignableUsers
 } from '../../services/taskService';
-import { fetchProjects, fetchProjectMembers, addProjectMember } from '../../services/projectService';
+import { fetchProjects } from '../../services/projectService';
 
 export const TasksPage: React.FC = () => {
   const { user, role } = useAuth();
+  const { showSuccess, showError } = useToast();
   const isManager = role === 'Super Admin' || role === 'Admin';
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -52,6 +53,7 @@ export const TasksPage: React.FC = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('All');
   const [selectedStatus, setSelectedStatus] = useState<TaskStatus | 'All'>('All');
   const [selectedPriority, setSelectedPriority] = useState<TaskPriority | 'All'>('All');
+  const [dateFilter, setDateFilter] = useState<'All' | 'Due Today' | 'Overdue' | 'Upcoming'>('All');
   const [isOverdueOnly, setIsOverdueOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -67,11 +69,9 @@ export const TasksPage: React.FC = () => {
   // Create Task Modal state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [submittingCreate, setSubmittingCreate] = useState(false);
-  const [projectMembers, setProjectMembers] = useState<any[]>([]);
   const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [assigneeSearch, setAssigneeSearch] = useState('');
   const [isAssigneeDropdownOpen, setIsAssigneeDropdownOpen] = useState(false);
-  const [enrollingMember, setEnrollingMember] = useState(false);
   const [createForm, setCreateForm] = useState<CreateTaskPayload>({
     project_id: '',
     title: '',
@@ -90,7 +90,7 @@ export const TasksPage: React.FC = () => {
 
   useEffect(() => {
     loadTasks();
-  }, [user, activeTab, selectedProjectId, selectedStatus, selectedPriority, isOverdueOnly, searchQuery]);
+  }, [user, activeTab, selectedProjectId, selectedStatus, selectedPriority, dateFilter, isOverdueOnly, searchQuery]);
 
   const loadProjects = async () => {
     try {
@@ -98,19 +98,9 @@ export const TasksPage: React.FC = () => {
       setProjects(data);
       if (data.length > 0 && !createForm.project_id) {
         setCreateForm((prev) => ({ ...prev, project_id: data[0].id }));
-        loadProjectMembers(data[0].id);
       }
     } catch (err) {
       console.warn('Could not load projects for task assignment:', err);
-    }
-  };
-
-  const loadProjectMembers = async (projectId: string) => {
-    try {
-      const members = await fetchProjectMembers(projectId);
-      setProjectMembers(members);
-    } catch (err) {
-      console.warn('Could not load project members:', err);
     }
   };
 
@@ -124,6 +114,7 @@ export const TasksPage: React.FC = () => {
         projectId: selectedProjectId,
         status: selectedStatus,
         priority: selectedPriority,
+        dateFilter: dateFilter,
         isOverdue: isOverdueOnly,
         searchQuery: searchQuery
       });
@@ -162,25 +153,6 @@ export const TasksPage: React.FC = () => {
     }
   };
 
-  const handleEnrollAssignee = async (userId: string) => {
-    const effectiveProjectId = createForm.project_id || (projects.length > 0 ? projects[0].id : '');
-    if (!effectiveProjectId || !userId) return;
-    try {
-      setEnrollingMember(true);
-      await addProjectMember(effectiveProjectId, userId);
-      setProjectMembers(prev => prev.some(m => m.user_id === userId) ? prev : [
-        ...prev, 
-        { project_id: effectiveProjectId, user_id: userId, created_at: new Date().toISOString() } as any
-      ]);
-      await loadProjectMembers(effectiveProjectId);
-    } catch (err: any) {
-      console.warn('Failed to enroll member in project:', err);
-      await loadProjectMembers(effectiveProjectId);
-    } finally {
-      setEnrollingMember(false);
-    }
-  };
-
   const openCreateModal = () => {
     const defaultProjId = projects[0]?.id || '';
     setCreateForm({
@@ -196,9 +168,6 @@ export const TasksPage: React.FC = () => {
     });
     setAssigneeSearch('');
     setIsAssigneeDropdownOpen(false);
-    if (defaultProjId) {
-      loadProjectMembers(defaultProjId);
-    }
     loadAssignableUsers();
     setIsCreateOpen(true);
   };
@@ -206,20 +175,20 @@ export const TasksPage: React.FC = () => {
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     const effectiveProjectId = createForm.project_id || (projects.length > 0 ? projects[0].id : '');
-    if (!createForm.title.trim() || !effectiveProjectId) return;
-
-    // Phase 8 Project Membership validation
-    const isSelfAssigned = !createForm.assignee_id || createForm.assignee_id === user?.id;
-    const isAssigneeInProject = isSelfAssigned || projectMembers.some(m => m.user_id === createForm.assignee_id);
-    if (!isAssigneeInProject) {
-      const assignedPerson = assignableUsers.find(u => u.id === createForm.assignee_id);
-      alert(`Cannot create task: ${assignedPerson?.full_name || 'Selected user'} is not enrolled in this project. Please add them to the project team first.`);
+    if (!createForm.title.trim()) {
+      showError('Please enter a task title.');
+      return;
+    }
+    if (!effectiveProjectId) {
+      showError('Please select a project.');
       return;
     }
 
     try {
       setSubmittingCreate(true);
-      await createTask({ ...createForm, project_id: effectiveProjectId });
+      const targetAssigneeId = isManager ? (createForm.assignee_id || user?.id || '') : (user?.id || '');
+      await createTask({ ...createForm, project_id: effectiveProjectId, assignee_id: targetAssigneeId });
+      showSuccess('Task created successfully');
       setIsCreateOpen(false);
       setCreateForm({
         project_id: projects[0]?.id || '',
@@ -232,40 +201,51 @@ export const TasksPage: React.FC = () => {
         estimated_hours: 0,
         due_date: ''
       });
-      if (!isSelfAssigned && isManager) {
-        setActiveTab('assigned_by_me');
-      }
-      loadTasks();
+      await loadTasks();
     } catch (err: any) {
-      alert(err.message || 'Failed to create task');
+      showError(err.message || 'Failed to create task');
     } finally {
       setSubmittingCreate(false);
     }
   };
 
-  const handleUpdateStatus = async (newStatus: TaskStatus) => {
+  const handleUpdateStatus = async (status: TaskStatus) => {
     if (!selectedTask) return;
     try {
       setTaskUpdating(true);
-      const updated = await updateTask(selectedTask.id, { status: newStatus });
-      setSelectedTask((prev) => (prev ? { ...prev, ...updated } : null));
-      loadTasks();
+      let progress = selectedTask.progress;
+      if (status === 'Completed' && progress < 100) {
+        progress = 100;
+      } else if (status === 'Todo' && progress === 100) {
+        progress = 0;
+      }
+      const updated = await updateTask(selectedTask.id, { status, progress });
+      setSelectedTask(updated);
+      setTasks(tasks.map((t) => (t.id === updated.id ? updated : t)));
     } catch (err: any) {
-      alert(err.message || 'Failed to update task status');
+      alert('Failed to update status: ' + err.message);
     } finally {
       setTaskUpdating(false);
     }
   };
 
-  const handleUpdateProgress = async (newProgress: number) => {
+  const handleUpdateProgress = async (progress: number) => {
     if (!selectedTask) return;
     try {
       setTaskUpdating(true);
-      const updated = await updateTask(selectedTask.id, { progress: newProgress });
-      setSelectedTask((prev) => (prev ? { ...prev, ...updated } : null));
-      loadTasks();
+      let status = selectedTask.status;
+      if (progress === 100) {
+        status = 'Completed';
+      } else if (progress > 0 && selectedTask.status === 'Todo') {
+        status = 'In Progress';
+      } else if (progress < 100 && selectedTask.status === 'Completed') {
+        status = 'In Progress';
+      }
+      const updated = await updateTask(selectedTask.id, { progress, status });
+      setSelectedTask(updated);
+      setTasks(tasks.map((t) => (t.id === updated.id ? updated : t)));
     } catch (err: any) {
-      alert(err.message || 'Failed to update task progress');
+      alert('Failed to update progress: ' + err.message);
     } finally {
       setTaskUpdating(false);
     }
@@ -273,89 +253,94 @@ export const TasksPage: React.FC = () => {
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim() || !selectedTask) return;
+    if (!selectedTask || !newComment.trim()) return;
 
     try {
       setSubmittingComment(true);
-      await addTaskComment(selectedTask.id, newComment);
+      const comment = await addTaskComment(selectedTask.id, newComment);
+      setComments([...comments, comment]);
       setNewComment('');
-      const updatedComments = await fetchTaskComments(selectedTask.id);
-      setComments(updatedComments);
     } catch (err: any) {
-      alert(err.message || 'Failed to post comment');
+      alert('Failed to post comment: ' + err.message);
     } finally {
       setSubmittingComment(false);
     }
   };
 
-  const handleUploadAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedTask || !e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
 
     try {
       setUploadingAttachment(true);
-      await uploadTaskAttachment(selectedTask.id, file);
-      const updatedAttachments = await fetchTaskAttachments(selectedTask.id);
-      setAttachments(updatedAttachments);
+      const attachment = await uploadTaskAttachment(selectedTask.id, file);
+      setAttachments([attachment, ...attachments]);
+      e.target.value = '';
     } catch (err: any) {
-      alert(err.message || 'Failed to upload attachment');
+      alert('Failed to upload attachment: ' + err.message);
     } finally {
       setUploadingAttachment(false);
-      e.target.value = '';
     }
   };
 
-  const handleDownloadAttachment = async (storagePath: string) => {
+  const handleDownloadAttachment = async (storagePath: string, fileName: string) => {
     try {
       const signedUrl = await getAttachmentSignedUrl(storagePath);
-      window.open(signedUrl, '_blank');
+      const link = document.createElement('a');
+      link.href = signedUrl;
+      link.download = fileName;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (err: any) {
-      alert(err.message || 'Failed to generate download link');
+      alert('Failed to download attachment: ' + err.message);
     }
   };
 
   const handleDeleteAttachment = async (attachmentId: string, storagePath: string) => {
-    if (!selectedTask) return;
     if (!confirm('Are you sure you want to delete this attachment?')) return;
-
     try {
       await deleteTaskAttachment(attachmentId, storagePath);
-      const updatedAttachments = await fetchTaskAttachments(selectedTask.id);
-      setAttachments(updatedAttachments);
+      setAttachments(attachments.filter(a => a.id !== attachmentId));
     } catch (err: any) {
-      alert(err.message || 'Failed to delete attachment');
-    }
-  };
-
-  const getPriorityBadgeClass = (priority: TaskPriority) => {
-    switch (priority) {
-      case 'Urgent':
-        return 'bg-status-danger/15 text-status-danger border-status-danger/30';
-      case 'High':
-        return 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30';
-      case 'Medium':
-        return 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30';
-      default:
-        return 'bg-surface-muted text-content-muted border-border';
+      alert('Failed to delete attachment: ' + err.message);
     }
   };
 
   const getStatusBadgeClass = (status: TaskStatus) => {
     switch (status) {
-      case 'Completed':
-        return 'bg-status-success/15 text-status-success border-status-success/30';
+      case 'Todo':
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border-gray-200';
       case 'In Progress':
-        return 'bg-primary/15 text-primary border-primary/30';
+        return 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200';
       case 'Review':
-        return 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30';
+        return 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200';
       case 'Needs Revision':
         return 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30';
+      case 'Completed':
+        return 'bg-status-success/15 text-status-success border-status-success/30';
       case 'On Hold':
-        return 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/30';
+        return 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border-gray-300';
       case 'Cancelled':
-        return 'bg-surface-muted text-content-muted border-border line-through';
+        return 'bg-status-danger/15 text-status-danger border-status-danger/30';
       default:
-        return 'bg-surface-muted text-content-muted border-border';
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getPriorityBadgeClass = (priority: TaskPriority) => {
+    switch (priority) {
+      case 'Low':
+        return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'Medium':
+        return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'High':
+        return 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30';
+      case 'Urgent':
+        return 'bg-status-danger/15 text-status-danger border-status-danger/30';
+      default:
+        return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
 
@@ -372,27 +357,25 @@ export const TasksPage: React.FC = () => {
           </p>
         </div>
 
-        {isManager && (
-          <Button 
-            id="create-task-button"
-            data-testid="create-task-button"
-            variant="primary" 
-            onClick={openCreateModal}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" /> Create Task
-          </Button>
-        )}
+        <Button 
+          id="create-task-button"
+          data-testid="create-task-button"
+          variant="primary" 
+          onClick={openCreateModal}
+          className="flex items-center gap-2"
+        >
+          <Plus className="h-4 w-4" /> Create Task
+        </Button>
       </div>
 
       {/* Role-Aware View Tabs */}
       <div className="border-b border-border">
-        <nav className="-mb-px flex space-x-6">
+        <nav className="-mb-px flex space-x-3 sm:space-x-6 overflow-x-auto no-scrollbar">
           <button
             id="tasks-tab-my-tasks"
             data-testid="tasks-tab-my-tasks"
             onClick={() => setActiveTab('my_tasks')}
-            className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+            className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors cursor-pointer ${
               activeTab === 'my_tasks'
                 ? 'border-primary text-primary font-semibold'
                 : 'border-transparent text-content-muted hover:text-content hover:border-border'
@@ -405,7 +388,7 @@ export const TasksPage: React.FC = () => {
               id="tasks-tab-assigned-by-me"
               data-testid="tasks-tab-assigned-by-me"
               onClick={() => setActiveTab('assigned_by_me')}
-              className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors cursor-pointer ${
                 activeTab === 'assigned_by_me'
                   ? 'border-primary text-primary font-semibold'
                   : 'border-transparent text-content-muted hover:text-content hover:border-border'
@@ -415,16 +398,16 @@ export const TasksPage: React.FC = () => {
             </button>
           ) : (
             <button
-              id="tasks-tab-assigned-by-manager"
-              data-testid="tasks-tab-assigned-by-manager"
+              id="tasks-tab-assigned-tasks"
+              data-testid="tasks-tab-assigned-tasks"
               onClick={() => setActiveTab('assigned_by_manager')}
-              className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors cursor-pointer ${
                 activeTab === 'assigned_by_manager'
                   ? 'border-primary text-primary font-semibold'
                   : 'border-transparent text-content-muted hover:text-content hover:border-border'
               }`}
             >
-              Assigned by Manager
+              Assigned Tasks
             </button>
           )}
           {isManager && (
@@ -432,7 +415,7 @@ export const TasksPage: React.FC = () => {
               id="tasks-tab-all-tasks"
               data-testid="tasks-tab-all-tasks"
               onClick={() => setActiveTab('all_tasks')}
-              className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`whitespace-nowrap pb-3 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors cursor-pointer ${
                 activeTab === 'all_tasks'
                   ? 'border-primary text-primary font-semibold'
                   : 'border-transparent text-content-muted hover:text-content hover:border-border'
@@ -450,6 +433,8 @@ export const TasksPage: React.FC = () => {
         <div>
           <label className="block text-[11px] font-medium text-content-muted mb-1">Project</label>
           <select
+            id="tasks-filter-project"
+            data-testid="tasks-filter-project"
             value={selectedProjectId}
             onChange={(e) => setSelectedProjectId(e.target.value)}
             className="w-full bg-surface border border-border rounded px-2.5 py-1.5 text-xs text-content focus:outline-none focus:ring-1 focus:ring-primary"
@@ -465,6 +450,8 @@ export const TasksPage: React.FC = () => {
         <div>
           <label className="block text-[11px] font-medium text-content-muted mb-1">Status</label>
           <select
+            id="tasks-filter-status"
+            data-testid="tasks-filter-status"
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value as any)}
             className="w-full bg-surface border border-border rounded px-2.5 py-1.5 text-xs text-content focus:outline-none focus:ring-1 focus:ring-primary"
@@ -484,6 +471,8 @@ export const TasksPage: React.FC = () => {
         <div>
           <label className="block text-[11px] font-medium text-content-muted mb-1">Priority</label>
           <select
+            id="tasks-filter-priority"
+            data-testid="tasks-filter-priority"
             value={selectedPriority}
             onChange={(e) => setSelectedPriority(e.target.value as any)}
             className="w-full bg-surface border border-border rounded px-2.5 py-1.5 text-xs text-content focus:outline-none focus:ring-1 focus:ring-primary"
@@ -496,17 +485,26 @@ export const TasksPage: React.FC = () => {
           </select>
         </div>
 
-        {/* Overdue Checkbox */}
-        <div className="flex items-end pb-1.5">
-          <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-content">
-            <input
-              type="checkbox"
-              checked={isOverdueOnly}
-              onChange={(e) => setIsOverdueOnly(e.target.checked)}
-              className="rounded border-border text-primary focus:ring-primary"
-            />
-            <span className={isOverdueOnly ? 'text-status-danger font-semibold' : ''}>Overdue Only</span>
-          </label>
+        {/* Due Date Schedule Selector */}
+        <div>
+          <label className="block text-[11px] font-medium text-content-muted mb-1">Due Schedule</label>
+          <select
+            id="tasks-filter-due-date"
+            data-testid="tasks-filter-due-date"
+            value={dateFilter}
+            onChange={(e) => {
+              const val = e.target.value as any;
+              setDateFilter(val);
+              if (val === 'Overdue') setIsOverdueOnly(true);
+              else setIsOverdueOnly(false);
+            }}
+            className="w-full bg-surface border border-border rounded px-2.5 py-1.5 text-xs text-content focus:outline-none focus:ring-1 focus:ring-primary font-medium"
+          >
+            <option value="All">All Due Dates</option>
+            <option value="Due Today">Due Today</option>
+            <option value="Overdue">Overdue Only</option>
+            <option value="Upcoming">Upcoming / Future</option>
+          </select>
         </div>
 
         {/* Search Bar */}
@@ -515,11 +513,13 @@ export const TasksPage: React.FC = () => {
           <div className="relative">
             <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-content-muted" />
             <input
+              id="tasks-search-input"
+              data-testid="tasks-search-input"
               type="text"
               placeholder="Search title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-surface border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-surface border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary text-content placeholder:text-content-muted"
             />
           </div>
         </div>
@@ -541,6 +541,8 @@ export const TasksPage: React.FC = () => {
           {tasks.map((task) => (
             <Card 
               key={task.id} 
+              id={`task-card-${task.id}`}
+              data-testid={`task-card-${task.id}`}
               className="hover:shadow-md transition-shadow cursor-pointer border border-border hover:border-primary/50 group" 
               onClick={() => openTask(task)}
             >
@@ -554,8 +556,19 @@ export const TasksPage: React.FC = () => {
                       <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${getPriorityBadgeClass(task.priority)}`}>
                         {task.priority}
                       </span>
+                      {task.is_due_today && (
+                        <span 
+                          data-testid={`task-due-today-badge-${task.id}`}
+                          className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1"
+                        >
+                          <Clock className="h-3 w-3 text-amber-600" /> Due Today
+                        </span>
+                      )}
                       {task.is_overdue && (
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-status-danger/15 text-status-danger border border-status-danger/30 flex items-center gap-1">
+                        <span 
+                          data-testid={`task-overdue-badge-${task.id}`}
+                          className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-status-danger/15 text-status-danger border border-status-danger/30 flex items-center gap-1"
+                        >
                           <AlertCircle className="h-3 w-3" /> Overdue
                         </span>
                       )}
@@ -566,11 +579,11 @@ export const TasksPage: React.FC = () => {
                     </h3>
 
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-content-muted">
-                      <span>Assignee: <strong className="text-content">{task.assignee?.full_name || 'Unassigned'}</strong></span>
-                      <span>Reporter: {task.reporter?.full_name || 'Unknown'}</span>
+                      <span>Created By: <strong className="text-content">{task.reporter?.full_name || 'Self'}</strong></span>
+                      <span>Assigned To: <strong className="text-content">{task.assignee?.full_name || 'Unassigned'}</strong></span>
                       {task.due_date && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" /> Due: {new Date(task.due_date).toLocaleDateString()}
+                        <span className={`flex items-center gap-1 ${task.is_due_today ? 'text-amber-700 dark:text-amber-300 font-semibold' : task.is_overdue ? 'text-status-danger font-semibold' : ''}`}>
+                          <Calendar className="h-3 w-3" /> Due: {task.is_due_today ? 'Today' : new Date(task.due_date).toLocaleDateString()}
                         </span>
                       )}
                       {task.estimated_hours > 0 && (
@@ -669,12 +682,12 @@ export const TasksPage: React.FC = () => {
               {/* Task Metadata Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-surface-muted p-3.5 rounded-lg border border-border">
                 <div>
-                  <span className="text-content-muted block">Assigned to:</span>
-                  <p className="font-semibold text-content">{selectedTask.assignee?.full_name || 'Unassigned'}</p>
+                  <span className="text-content-muted block">Created By:</span>
+                  <p className="font-semibold text-content">{selectedTask.reporter?.full_name || 'Self'}</p>
                 </div>
                 <div>
-                  <span className="text-content-muted block">Reported by:</span>
-                  <p className="font-semibold text-content">{selectedTask.reporter?.full_name || 'Unknown'}</p>
+                  <span className="text-content-muted block">Assigned To:</span>
+                  <p className="font-semibold text-content">{selectedTask.assignee?.full_name || 'Unassigned'}</p>
                 </div>
                 <div>
                   <span className="text-content-muted block">Priority:</span>
@@ -685,6 +698,21 @@ export const TasksPage: React.FC = () => {
                   <p className={`font-semibold ${selectedTask.is_overdue ? 'text-status-danger' : 'text-content'}`}>
                     {selectedTask.due_date ? new Date(selectedTask.due_date).toLocaleDateString() : 'None'}
                   </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs bg-surface-muted p-3.5 rounded-lg border border-border mt-3">
+                <div>
+                  <span className="text-content-muted block">Estimated Hours:</span>
+                  <p className="font-semibold text-content">{selectedTask.estimated_hours ? `${selectedTask.estimated_hours} hrs` : '0 hrs'}</p>
+                </div>
+                <div>
+                  <span className="text-content-muted block">Created Date:</span>
+                  <p className="font-semibold text-content">{selectedTask.created_at ? new Date(selectedTask.created_at).toLocaleDateString() : '—'}</p>
+                </div>
+                <div>
+                  <span className="text-content-muted block">Last Updated:</span>
+                  <p className="font-semibold text-content">{selectedTask.updated_at ? new Date(selectedTask.updated_at).toLocaleDateString() : '—'}</p>
                 </div>
               </div>
             </div>
@@ -703,7 +731,7 @@ export const TasksPage: React.FC = () => {
                   <input
                     type="file"
                     className="hidden"
-                    onChange={handleUploadAttachment}
+                    onChange={handleFileUpload}
                     disabled={uploadingAttachment}
                   />
                 </label>
@@ -727,7 +755,7 @@ export const TasksPage: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleDownloadAttachment(att.storage_path)}
+                          onClick={() => handleDownloadAttachment(att.storage_path, att.file_name)}
                           className="text-primary hover:bg-primary/10 p-1 rounded transition-colors"
                           title="Download attachment"
                         >
@@ -822,8 +850,6 @@ export const TasksPage: React.FC = () => {
           );
           const selectedAssignee = assignableUsers.find(u => u.id === createForm.assignee_id);
           const isSelfAssigned = !createForm.assignee_id || createForm.assignee_id === user?.id;
-          const isAssigneeInProject = isSelfAssigned || projectMembers.some(m => m.user_id === createForm.assignee_id);
-          const currentProject = projects.find(p => p.id === (createForm.project_id || (projects[0]?.id || '')));
 
           return (
             <form onSubmit={handleCreateTask} className="space-y-4 text-xs sm:text-sm">
@@ -870,7 +896,6 @@ export const TasksPage: React.FC = () => {
                     value={createForm.project_id || (projects.length > 0 ? projects[0].id : '')}
                     onChange={(e) => {
                       setCreateForm({ ...createForm, project_id: e.target.value });
-                      loadProjectMembers(e.target.value);
                     }}
                     className="w-full px-3 py-2 bg-surface border border-border rounded-md text-content focus:outline-none focus:ring-1 focus:ring-primary"
                   >
@@ -1004,8 +1029,8 @@ export const TasksPage: React.FC = () => {
                               <p className="text-xs font-semibold text-content truncate">{selectedAssignee.full_name}</p>
                               <span className={`inline-block px-1.5 py-0.2 rounded text-[10px] font-medium ${
                                 selectedAssignee.role === 'Employee' 
-                                  ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300' 
-                                  : 'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/50 dark:text-purple-300'
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300' 
+                                : 'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/50 dark:text-purple-300'
                               }`}>
                                 {selectedAssignee.role}
                               </span>
@@ -1068,7 +1093,6 @@ export const TasksPage: React.FC = () => {
                               <div className="space-y-0.5">
                                 {filteredEmployees.map((emp) => {
                                   const isSelected = createForm.assignee_id === emp.id;
-                                  const inProj = projectMembers.some(m => m.user_id === emp.id);
                                   const slug = emp.email.split('@')[0];
                                   return (
                                     <div
@@ -1097,18 +1121,7 @@ export const TasksPage: React.FC = () => {
                                           <p className="text-[10px] text-content-muted truncate">{emp.email}</p>
                                         </div>
                                       </div>
-                                      <div className="flex items-center gap-1.5 shrink-0">
-                                        {inProj ? (
-                                          <span className="text-[10px] text-status-success flex items-center gap-0.5 font-medium">
-                                            <Check className="h-3 w-3" /> Project Team
-                                          </span>
-                                        ) : (
-                                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                                            Not in team
-                                          </span>
-                                        )}
-                                        {isSelected && <Check className="h-3.5 w-3.5 text-primary ml-1" />}
-                                      </div>
+                                      {isSelected && <Check className="h-3.5 w-3.5 text-primary ml-1 shrink-0" />}
                                     </div>
                                   );
                                 })}
@@ -1125,7 +1138,6 @@ export const TasksPage: React.FC = () => {
                               <div className="space-y-0.5">
                                 {filteredInterns.map((intern) => {
                                   const isSelected = createForm.assignee_id === intern.id;
-                                  const inProj = projectMembers.some(m => m.user_id === intern.id);
                                   const slug = intern.email.split('@')[0];
                                   return (
                                     <div
@@ -1154,18 +1166,7 @@ export const TasksPage: React.FC = () => {
                                           <p className="text-[10px] text-content-muted truncate">{intern.email}</p>
                                         </div>
                                       </div>
-                                      <div className="flex items-center gap-1.5 shrink-0">
-                                        {inProj ? (
-                                          <span className="text-[10px] text-status-success flex items-center gap-0.5 font-medium">
-                                            <Check className="h-3 w-3" /> Project Team
-                                          </span>
-                                        ) : (
-                                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                                            Not in team
-                                          </span>
-                                        )}
-                                        {isSelected && <Check className="h-3.5 w-3.5 text-primary ml-1" />}
-                                      </div>
+                                      {isSelected && <Check className="h-3.5 w-3.5 text-primary ml-1 shrink-0" />}
                                     </div>
                                   );
                                 })}
@@ -1190,36 +1191,6 @@ export const TasksPage: React.FC = () => {
                     className="w-full px-3 py-2 bg-surface-muted border border-border rounded-md text-content-muted"
                   />
                 )}
-
-                {/* Phase 8 Project Restriction Warning & 1-Click Action */}
-                {!isSelfAssigned && selectedAssignee && !isAssigneeInProject && (
-                  <div 
-                    id="project-membership-warning"
-                    data-testid="project-membership-warning"
-                    className="mt-2 p-3 bg-amber-500/10 border border-amber-500/25 rounded-md flex items-start gap-2.5 text-xs text-amber-800 dark:text-amber-200"
-                  >
-                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="font-semibold">
-                        {selectedAssignee.full_name} is not enrolled in "{currentProject?.name || 'this project'}".
-                      </p>
-                      <p className="mt-0.5 text-content-muted text-[11px]">
-                        Team members must belong to the project team before operational tasks can be assigned to them.
-                      </p>
-                      <button
-                        id="enroll-assignee-button"
-                        data-testid="enroll-assignee-button"
-                        type="button"
-                        disabled={enrollingMember}
-                        onClick={() => handleEnrollAssignee(selectedAssignee.id)}
-                        className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded bg-primary text-white hover:bg-primary/90 transition-colors cursor-pointer shadow-2xs"
-                      >
-                        <UserCheck className="h-3.5 w-3.5" />
-                        {enrollingMember ? 'Adding to Project...' : `Add ${selectedAssignee.full_name} to Project Team`}
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Action Buttons */}
@@ -1232,7 +1203,7 @@ export const TasksPage: React.FC = () => {
                   data-testid="submit-create-task-button"
                   type="submit" 
                   variant="primary" 
-                  disabled={submittingCreate || !isAssigneeInProject}
+                  disabled={submittingCreate}
                 >
                   {submittingCreate ? 'Creating...' : 'Create Task'}
                 </Button>

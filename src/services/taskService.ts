@@ -127,18 +127,24 @@ export async function fetchTasks(params: TaskFilterParams = {}): Promise<Task[]>
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // 6. Post-process & Overdue derivation
+  // 6. Post-process & Overdue / Due Today derivation
   let tasks: Task[] = (data || []).map((row: any) => {
     const isOverdue = !!(row.due_date && row.due_date < todayStr && row.status !== 'Completed' && row.status !== 'Cancelled');
+    const isDueToday = !!(row.due_date && row.due_date === todayStr && row.status !== 'Completed' && row.status !== 'Cancelled');
     return {
       ...row,
-      is_overdue: isOverdue
+      is_overdue: isOverdue,
+      is_due_today: isDueToday
     };
   });
 
-  // 7. Apply In-Memory / Client filters (Overdue toggle, Search keyword)
-  if (params.isOverdue) {
+  // 7. Apply In-Memory / Client filters (Date filters, Search keyword)
+  if (params.dateFilter === 'Due Today' || params.isDueToday) {
+    tasks = tasks.filter((t) => t.is_due_today);
+  } else if (params.dateFilter === 'Overdue' || params.isOverdue) {
     tasks = tasks.filter((t) => t.is_overdue);
+  } else if (params.dateFilter === 'Upcoming') {
+    tasks = tasks.filter((t) => t.due_date && t.due_date > todayStr);
   }
 
   if (params.searchQuery && params.searchQuery.trim()) {
@@ -180,10 +186,12 @@ export async function fetchTaskById(id: string): Promise<Task | null> {
 
   const todayStr = new Date().toISOString().split('T')[0];
   const isOverdue = !!(data.due_date && data.due_date < todayStr && data.status !== 'Completed' && data.status !== 'Cancelled');
+  const isDueToday = !!(data.due_date && data.due_date === todayStr && data.status !== 'Completed' && data.status !== 'Cancelled');
 
   return {
     ...data,
-    is_overdue: isOverdue
+    is_overdue: isOverdue,
+    is_due_today: isDueToday
   } as unknown as Task;
 }
 

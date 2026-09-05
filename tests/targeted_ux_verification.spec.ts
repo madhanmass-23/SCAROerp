@@ -15,42 +15,42 @@ const adminSupabase = createClient(supabaseUrl, serviceKey);
 const USERS = {
   superAdmin: {
     name: 'Satish Kumar',
-    email: 'satishkumar@scaro.com',
+    email: 'satishkumar@scaro.in',
     pass: 'Scaro@SatishKumar2026!',
     expectedRoute: '/app/admin/dashboard',
     role: 'Super Admin'
   },
   admin: {
     name: 'Kumar',
-    email: 'kumar@scaro.com',
+    email: 'kumar@scaro.in',
     pass: 'Scaro@Kumar2026!',
     expectedRoute: '/app/admin/overview',
     role: 'Admin'
   },
   employee: {
     name: 'Madhan',
-    email: 'madhan@scaro.com',
+    email: 'madhan@scaro.in',
     pass: 'Scaro@Madhan2026!',
     expectedRoute: '/app/dashboard',
     role: 'Employee'
   },
   employee2: {
     name: 'Elumalai',
-    email: 'elumalai@scaro.com',
+    email: 'elumalai@scaro.in',
     pass: 'Scaro@Elumalai2026!',
     expectedRoute: '/app/dashboard',
     role: 'Employee'
   },
   intern: {
     name: 'Maheswari',
-    email: 'maheswari@scaro.com',
+    email: 'maheswari@scaro.in',
     pass: 'Scaro@Maheswari2026!',
     expectedRoute: '/app/intern/dashboard',
     role: 'Intern'
   },
   intern2: {
     name: 'Nikitha',
-    email: 'nikitha@scaro.com',
+    email: 'nikitha@scaro.in',
     pass: 'Scaro@Nikitha2026!',
     expectedRoute: '/app/intern/dashboard',
     role: 'Intern'

@@ -27,19 +27,19 @@ test.describe.serial('Phase 9 — Workforce Performance & Work Intelligence', ()
     const { data: empProfile } = await adminSupabase
       .from('profiles')
       .select('id, email, full_name')
-      .eq('email', 'employee@scaro.com')
+      .eq('email', 'employee@scaro.in')
       .single();
 
     const { data: admProfile } = await adminSupabase
       .from('profiles')
       .select('id, email')
-      .eq('email', 'admin@scaro.com')
+      .eq('email', 'admin@scaro.in')
       .single();
 
     const { data: intProfile } = await adminSupabase
       .from('profiles')
       .select('id, email')
-      .eq('email', 'intern@scaro.com')
+      .eq('email', 'intern@scaro.in')
       .single();
 
     employeeUser = empProfile!;
@@ -49,19 +49,19 @@ test.describe.serial('Phase 9 — Workforce Performance & Work Intelligence', ()
     // 2. Initialize authenticated Supabase clients
     employeeClient = createClient(supabaseUrl, anonKey);
     await employeeClient.auth.signInWithPassword({
-      email: 'employee@scaro.com',
+      email: 'employee@scaro.in',
       password: 'Scaro@Employee2026!',
     });
 
     internClient = createClient(supabaseUrl, anonKey);
     await internClient.auth.signInWithPassword({
-      email: 'intern@scaro.com',
+      email: 'intern@scaro.in',
       password: 'Scaro@Intern2026!',
     });
 
     adminClient = createClient(supabaseUrl, anonKey);
     await adminClient.auth.signInWithPassword({
-      email: 'admin@scaro.com',
+      email: 'admin@scaro.in',
       password: 'Scaro@Admin2026!',
     });
   });
@@ -71,7 +71,7 @@ test.describe.serial('Phase 9 — Workforce Performance & Work Intelligence', ()
   // -------------------------------------------------------------
   test('1. Super Admin Dashboard renders Workforce Intelligence & Team Workload', async ({ page }) => {
     await page.goto('/');
-    await page.fill('input[type="email"]', 'admin@scaro.com');
+    await page.fill('input[type="email"]', 'admin@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Admin2026!');
     await page.click('button[type="submit"]');
 
@@ -100,7 +100,7 @@ test.describe.serial('Phase 9 — Workforce Performance & Work Intelligence', ()
   // -------------------------------------------------------------
   test('2. Admin Dashboard renders Team Workload with neutral operational filters', async ({ page }) => {
     await page.goto('/');
-    await page.fill('input[type="email"]', 'manager@scaro.com');
+    await page.fill('input[type="email"]', 'manager@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Manager2026!');
     await page.click('button[type="submit"]');
 
@@ -133,7 +133,7 @@ test.describe.serial('Phase 9 — Workforce Performance & Work Intelligence', ()
   // -------------------------------------------------------------
   test('3. Person Work Profile Modal opens with full operational tabs and workload pills', async ({ page }) => {
     await page.goto('/');
-    await page.fill('input[type="email"]', 'admin@scaro.com');
+    await page.fill('input[type="email"]', 'admin@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Admin2026!');
     await page.click('button[type="submit"]');
 
@@ -252,7 +252,7 @@ test.describe.serial('Phase 9 — Workforce Performance & Work Intelligence', ()
   // -------------------------------------------------------------
   test('6. Time Windows & Trend Analysis supports 7, 14, and 30 day periods', async ({ page }) => {
     await page.goto('/');
-    await page.fill('input[type="email"]', 'admin@scaro.com');
+    await page.fill('input[type="email"]', 'admin@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Admin2026!');
     await page.click('button[type="submit"]');
 
@@ -288,7 +288,7 @@ test.describe.serial('Phase 9 — Workforce Performance & Work Intelligence', ()
   // -------------------------------------------------------------
   test('7. Zero Employee Ranking & Zero Performance Scoring Invariant', async ({ page }) => {
     await page.goto('/');
-    await page.fill('input[type="email"]', 'admin@scaro.com');
+    await page.fill('input[type="email"]', 'admin@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Admin2026!');
     await page.click('button[type="submit"]');
 
@@ -338,7 +338,7 @@ test.describe.serial('Phase 9 — Workforce Performance & Work Intelligence', ()
   // -------------------------------------------------------------
   test('9. Security & Role Isolation: Employees cannot access management dashboards', async ({ page }) => {
     await page.goto('/');
-    await page.fill('input[type="email"]', 'employee@scaro.com');
+    await page.fill('input[type="email"]', 'employee@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Employee2026!');
     await page.click('button[type="submit"]');
 
@@ -367,7 +367,7 @@ test.describe.serial('Phase 9 — Workforce Performance & Work Intelligence', ()
   // -------------------------------------------------------------
   test('10. Security & Role Isolation: Interns cannot access management dashboards', async ({ page }) => {
     await page.goto('/');
-    await page.fill('input[type="email"]', 'intern@scaro.com');
+    await page.fill('input[type="email"]', 'intern@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Intern2026!');
     await page.click('button[type="submit"]');
 

@@ -3,6 +3,21 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --color-primary: #7B1113;
+    --color-primary-hover: #5F0A0E;
+    --color-primary-muted: #FBECEE;
+    --color-primary-foreground: #FFFFFF;
+    --color-secondary: #C59B3F;
+    --color-accent: #C59B3F;
+    --color-surface: #FFFFFF;
+    --color-surface-muted: #F9FAFB;
+    --color-content: #1F2937;
+    --color-content-muted: #6B7280;
+    --color-border: #E5E7EB;
+    --color-focus-ring: #7B1113;
+  }
+
   body {
     @apply text-content bg-surface-muted antialiased;
   }

@@ -24,27 +24,27 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 
 const TEST_USERS = [
   // 10 Interns
-  { name: 'Maheswari', email: 'maheswari@scaro.com', pass: 'Scaro@Maheswari2026!', role: 'Intern', status: 'Intern' },
-  { name: 'Nikitha', email: 'nikitha@scaro.com', pass: 'Scaro@Nikitha2026!', role: 'Intern', status: 'Intern' },
-  { name: 'Krishna Veni', email: 'krishnaveni@scaro.com', pass: 'Scaro@KrishnaVeni2026!', role: 'Intern', status: 'Intern' },
-  { name: 'Revati', email: 'revati@scaro.com', pass: 'Scaro@Revati2026!', role: 'Intern', status: 'Intern' },
-  { name: 'Thanmayee', email: 'thanmayee@scaro.com', pass: 'Scaro@Thanmayee2026!', role: 'Intern', status: 'Intern' },
-  { name: 'Ruchitha', email: 'ruchitha@scaro.com', pass: 'Scaro@Ruchitha2026!', role: 'Intern', status: 'Intern' },
-  { name: 'Rupeswari', email: 'rupeswari@scaro.com', pass: 'Scaro@Rupeswari2026!', role: 'Intern', status: 'Intern' },
-  { name: 'Thoyaja', email: 'thoyaja@scaro.com', pass: 'Scaro@Thoyaja2026!', role: 'Intern', status: 'Intern' },
-  { name: 'Amani', email: 'amani@scaro.com', pass: 'Scaro@Amani2026!', role: 'Intern', status: 'Intern' },
-  { name: 'Divya', email: 'divya@scaro.com', pass: 'Scaro@Divya2026!', role: 'Intern', status: 'Intern' },
+  { name: 'Maheswari', email: 'maheswari@scaro.in', pass: 'Scaro@Maheswari2026!', role: 'Intern', status: 'Intern' },
+  { name: 'Nikitha', email: 'nikitha@scaro.in', pass: 'Scaro@Nikitha2026!', role: 'Intern', status: 'Intern' },
+  { name: 'Krishna Veni', email: 'krishnaveni@scaro.in', pass: 'Scaro@KrishnaVeni2026!', role: 'Intern', status: 'Intern' },
+  { name: 'Revati', email: 'revati@scaro.in', pass: 'Scaro@Revati2026!', role: 'Intern', status: 'Intern' },
+  { name: 'Thanmayee', email: 'thanmayee@scaro.in', pass: 'Scaro@Thanmayee2026!', role: 'Intern', status: 'Intern' },
+  { name: 'Ruchitha', email: 'ruchitha@scaro.in', pass: 'Scaro@Ruchitha2026!', role: 'Intern', status: 'Intern' },
+  { name: 'Rupeswari', email: 'rupeswari@scaro.in', pass: 'Scaro@Rupeswari2026!', role: 'Intern', status: 'Intern' },
+  { name: 'Thoyaja', email: 'thoyaja@scaro.in', pass: 'Scaro@Thoyaja2026!', role: 'Intern', status: 'Intern' },
+  { name: 'Amani', email: 'amani@scaro.in', pass: 'Scaro@Amani2026!', role: 'Intern', status: 'Intern' },
+  { name: 'Divya', email: 'divya@scaro.in', pass: 'Scaro@Divya2026!', role: 'Intern', status: 'Intern' },
 
   // 3 Employees
-  { name: 'Madhan', email: 'madhan@scaro.com', pass: 'Scaro@Madhan2026!', role: 'Employee', status: 'Employee' },
-  { name: 'Elumalai', email: 'elumalai@scaro.com', pass: 'Scaro@Elumalai2026!', role: 'Employee', status: 'Employee' },
-  { name: 'Pavan Kumar', email: 'pavankumar@scaro.com', pass: 'Scaro@PavanKumar2026!', role: 'Employee', status: 'Employee' },
+  { name: 'Madhan', email: 'madhan@scaro.in', pass: 'Scaro@Madhan2026!', role: 'Employee', status: 'Employee' },
+  { name: 'Elumalai', email: 'elumalai@scaro.in', pass: 'Scaro@Elumalai2026!', role: 'Employee', status: 'Employee' },
+  { name: 'Pavan Kumar', email: 'pavankumar@scaro.in', pass: 'Scaro@PavanKumar2026!', role: 'Employee', status: 'Employee' },
 
   // 1 Admin
-  { name: 'Kumar', email: 'kumar@scaro.com', pass: 'Scaro@Kumar2026!', role: 'Admin', status: 'Employee' },
+  { name: 'Kumar', email: 'kumar@scaro.in', pass: 'Scaro@Kumar2026!', role: 'Admin', status: 'Employee' },
 
   // 1 Super Admin
-  { name: 'Satish Kumar', email: 'satishkumar@scaro.com', pass: 'Scaro@SatishKumar2026!', role: 'Super Admin', status: 'Employee' }
+  { name: 'Satish Kumar', email: 'satishkumar@scaro.in', pass: 'Scaro@SatishKumar2026!', role: 'Super Admin', status: 'Employee' }
 ];
 
 export async function provisionAllTestUsers() {

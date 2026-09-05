@@ -15,6 +15,7 @@ import type {
   OperationalAlert,
   TeamWorkloadMember,
   WorkActivityTrendPoint,
+  WorkforceTrendsResult,
   PersonWorkIntelligence,
 } from '../types/management';
 
@@ -43,10 +44,10 @@ export async function fetchManagementMetrics(): Promise<ManagementMetrics> {
   if (profilesErr) throw profilesErr;
   if (rolesErr) throw rolesErr;
 
-  // Build user_id -> roles map
+  // Build user_id -> roles map strictly from database user_roles table
   const userRolesMap = new Map<string, string[]>();
   userRolesData?.forEach((ur: any) => {
-    const roleName = ur.roles?.name;
+    const roleName = Array.isArray(ur.roles) ? ur.roles[0]?.name : ur.roles?.name;
     if (roleName) {
       const existing = userRolesMap.get(ur.user_id) || [];
       existing.push(roleName);
@@ -56,20 +57,24 @@ export async function fetchManagementMetrics(): Promise<ManagementMetrics> {
 
   let totalEmployees = 0;
   let totalInterns = 0;
-  let activeTargetUsersCount = 0;
+  let totalAdmins = 0;
+  let totalSuperAdmins = 0;
 
   profilesData?.forEach((p: any) => {
+    if (!p.is_active) return;
     const roles = userRolesMap.get(p.id) || [];
-    const isEmp = roles.includes('Employee') || p.employment_status === 'Employee';
-    const isInt = roles.includes('Intern') || p.employment_status === 'Intern';
-    const isAdmin = roles.includes('Admin') || roles.includes('Super Admin');
-
-    if (isEmp && !isAdmin) totalEmployees++;
-    if (isInt && !isAdmin) totalInterns++;
-    if ((isEmp || isInt) && !isAdmin) activeTargetUsersCount++;
+    if (roles.includes('Super Admin')) {
+      totalSuperAdmins++;
+    } else if (roles.includes('Admin')) {
+      totalAdmins++;
+    } else if (roles.includes('Intern')) {
+      totalInterns++;
+    } else if (roles.includes('Employee')) {
+      totalEmployees++;
+    }
   });
 
-  const activeUsers = profilesData?.length || 0;
+  const activeUsers = profilesData?.filter((p: any) => p.is_active)?.length || 0;
 
   // Execute independent count queries in parallel
   const [
@@ -104,13 +109,13 @@ export async function fetchManagementMetrics(): Promise<ManagementMetrics> {
   let reportsPendingToday = 0;
 
   profilesData?.forEach((p: any) => {
+    if (!p.is_active) return;
     const roles = userRolesMap.get(p.id) || [];
-    const isEmp = roles.includes('Employee') || p.employment_status === 'Employee';
-    const isInt = roles.includes('Intern') || p.employment_status === 'Intern';
-    const isAdmin = roles.includes('Admin') || roles.includes('Super Admin');
+    const isEmp = roles.includes('Employee') && !roles.includes('Admin') && !roles.includes('Super Admin');
+    const isInt = roles.includes('Intern') && !roles.includes('Admin') && !roles.includes('Super Admin');
 
     // Exclude Admin and Super Admin from Employee/Intern target population
-    if (isAdmin || (!isEmp && !isInt)) return;
+    if (!isEmp && !isInt) return;
 
     const isPresent = checkedInUserIds.has(p.id);
     const isSubmitted = submittedUserIds.has(p.id);
@@ -128,6 +133,8 @@ export async function fetchManagementMetrics(): Promise<ManagementMetrics> {
   return {
     totalEmployees,
     totalInterns,
+    totalAdmins,
+    totalSuperAdmins,
     activeUsers,
     checkedInToday: checkedInTargetCount,
     reportsSubmittedToday,
@@ -217,11 +224,15 @@ export async function fetchAttendanceReportCorrelation(dateString?: string): Pro
 
   profiles?.forEach((p: any) => {
     const roles = userRolesMap.get(p.id) || [];
-    const isAdmin = roles.includes('Admin') || roles.includes('Super Admin');
-    // Only include Employees and Interns in the correlation view
-    if (isAdmin) return;
+    const isSuperAdmin = roles.includes('Super Admin');
+    const isAdmin = roles.includes('Admin');
+    const isInt = roles.includes('Intern');
+    const isEmp = roles.includes('Employee');
 
-    const primaryRole = roles.includes('Intern') || p.employment_status === 'Intern' ? 'Intern' : 'Employee';
+    // Only include operational workforce (Employees and Interns)
+    if (isSuperAdmin || isAdmin || (!isInt && !isEmp)) return;
+
+    const primaryRole = isInt ? 'Intern' : 'Employee';
     const session = sessionMap.get(p.id);
     const report = reportMap.get(p.id);
 
@@ -1065,11 +1076,15 @@ export async function fetchTeamWorkloadIntelligence(): Promise<TeamWorkloadMembe
 
   (profiles || []).forEach((p: any) => {
     const roles = userRolesMap.get(p.id) || [];
-    const isAdmin = roles.includes('Admin') || roles.includes('Super Admin');
-    // Only include Employees and Interns in the team workload view
-    if (isAdmin) return;
+    const isSuperAdmin = roles.includes('Super Admin');
+    const isAdmin = roles.includes('Admin');
+    const isInt = roles.includes('Intern');
+    const isEmp = roles.includes('Employee');
 
-    const primaryRole = roles.includes('Intern') || p.employment_status === 'Intern' ? 'Intern' : 'Employee';
+    // Only include operational workforce (Employees and Interns) in the team workload view
+    if (isSuperAdmin || isAdmin || (!isInt && !isEmp)) return;
+
+    const primaryRole = isInt ? 'Intern' : 'Employee';
     const isPresent = checkedInUserIds.has(p.id);
     const isSubmitted = submittedReportMap.has(p.id);
     const isApprovedLeave = approvedLeaveUserIds.has(p.id);
@@ -1112,20 +1127,45 @@ export async function fetchTeamWorkloadIntelligence(): Promise<TeamWorkloadMembe
   return result;
 }
 
-export async function fetchWorkforceTrends(days = 14): Promise<WorkActivityTrendPoint[]> {
-  const dates: string[] = [];
-  const now = new Date();
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * 86400000);
-    dates.push(d.toISOString().split('T')[0]);
+export async function fetchWorkforceTrends(
+  options: number | { startDate: string; endDate: string } = 14
+): Promise<WorkforceTrendsResult> {
+  const getLocalDate = (d: Date = new Date()) => {
+    const offset = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - offset).toISOString().split('T')[0];
+  };
+
+  let startDate: string;
+  let endDate: string;
+
+  if (typeof options === 'object' && options.startDate && options.endDate) {
+    startDate = options.startDate;
+    endDate = options.endDate;
+    if (startDate > endDate) {
+      const temp = startDate;
+      startDate = endDate;
+      endDate = temp;
+    }
+  } else {
+    const days = typeof options === 'number' ? options : 14;
+    const now = new Date();
+    endDate = getLocalDate(now);
+    const startObj = new Date(now.getTime() - (days - 1) * 86400000);
+    startDate = getLocalDate(startObj);
   }
-  const startDate = dates[0];
-  const endDate = dates[dates.length - 1];
+
+  const dates: string[] = [];
+  const curr = new Date(startDate + 'T00:00:00');
+  const end = new Date(endDate + 'T00:00:00');
+  while (curr <= end) {
+    dates.push(getLocalDate(curr));
+    curr.setDate(curr.getDate() + 1);
+  }
 
   const [
     { data: reports },
     { data: attendance },
-    { data: completedTasks },
+    { data: allTasks },
   ] = await Promise.all([
     supabase
       .from('daily_reports')
@@ -1141,10 +1181,7 @@ export async function fetchWorkforceTrends(days = 14): Promise<WorkActivityTrend
       .lte('session_date', endDate),
     supabase
       .from('tasks')
-      .select('updated_at, status')
-      .eq('status', 'Completed')
-      .gte('updated_at', `${startDate}T00:00:00Z`)
-      .lte('updated_at', `${endDate}T23:59:59Z`),
+      .select('id, status, created_at, updated_at'),
   ]);
 
   const reportMap = new Map<string, number>();
@@ -1158,15 +1195,50 @@ export async function fetchWorkforceTrends(days = 14): Promise<WorkActivityTrend
   });
 
   const taskMap = new Map<string, number>();
-  (completedTasks || []).forEach((t: any) => {
-    const d = t.updated_at.split('T')[0];
-    taskMap.set(d, (taskMap.get(d) || 0) + 1);
+  let completedCount = 0;
+  let inProgressCount = 0;
+  let pendingCount = 0;
+
+  (allTasks || []).forEach((t: any) => {
+    const isCompleted = t.status === 'Completed';
+    const isInProgress = t.status === 'In Progress';
+    const isPending = t.status === 'Todo' || t.status === 'Review' || t.status === 'Needs Revision' || t.status === 'On Hold';
+
+    if (isCompleted) {
+      completedCount++;
+      const updatedDate = t.updated_at ? t.updated_at.split('T')[0] : '';
+      if (updatedDate >= startDate && updatedDate <= endDate) {
+        taskMap.set(updatedDate, (taskMap.get(updatedDate) || 0) + 1);
+      }
+    } else if (isInProgress) {
+      inProgressCount++;
+    } else if (isPending) {
+      pendingCount++;
+    }
   });
 
-  return dates.map(d => ({
+  const totalTasks = completedCount + inProgressCount + pendingCount;
+  const totalReports = (reports || []).length;
+  const totalAttendance = (attendance || []).length;
+  const totalTasksCompletedInRange = Array.from(taskMap.values()).reduce((sum, n) => sum + n, 0);
+
+  const timeline: WorkActivityTrendPoint[] = dates.map((d) => ({
     date: d,
     reportsSubmitted: reportMap.get(d) || 0,
     attendanceCheckins: attendanceMap.get(d) || 0,
     tasksCompleted: taskMap.get(d) || 0,
   }));
+
+  return {
+    timeline,
+    taskDistribution: {
+      completed: completedCount,
+      inProgress: inProgressCount,
+      pending: pendingCount,
+      total: totalTasks,
+    },
+    totalReports,
+    totalTasksCompleted: totalTasksCompletedInRange,
+    totalAttendance,
+  };
 }

@@ -4,10 +4,12 @@ import { Button } from '../../components/ui/Button';
 import { LoadingState } from '../../components/ui/LoadingState';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { useToast } from '../../components/ui/Toast';
-import { FileText, Save, Send, Plus, Trash2, CheckCircle2, UploadCloud, X, File } from 'lucide-react';
+import { FileText, Save, Send, Plus, Trash2, CheckCircle2, UploadCloud, X, File, Target, Clock, AlertCircle, LogOut } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../features/auth/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { extractTodayPlan, extractWorkDone, formatReportNotes } from '../../utils/dailyReport';
+import { finalizeWorkdaySignOut } from '../../services/authWorkflowService';
 
 type Task = {
   id: string;
@@ -25,18 +27,21 @@ type DailyReportTask = {
 };
 
 export const DailyTrackerPage: React.FC = () => {
-  const { user, role } = useAuth();
+  const { user } = useAuth();
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   
-  // Data State
+  // Data State — strictly separating Today's Plan, Work Done, and Tomorrow's Plan
   const [reportId, setReportId] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('draft');
-  const [notes, setNotes] = useState('');
+  const [todayPlan, setTodayPlan] = useState<string | null>(null);
+  const [workDone, setWorkDone] = useState('');
   const [blockers, setBlockers] = useState('');
   const [tomorrowPlan, setTomorrowPlan] = useState('');
   const [companyRequirements, setCompanyRequirements] = useState('');
@@ -64,7 +69,7 @@ export const DailyTrackerPage: React.FC = () => {
         .from('tasks')
         .select('id, title, status')
         .eq('assignee_id', user.id)
-        .neq('status', 'Completed'); // Only show active tasks usually, or let them pick recently completed
+        .neq('status', 'Completed'); // Only show active tasks usually
       
       if (tasksData) setAvailableTasks(tasksData);
 
@@ -81,7 +86,8 @@ export const DailyTrackerPage: React.FC = () => {
       if (reportData) {
         setReportId(reportData.id);
         setStatus(reportData.status);
-        setNotes(reportData.notes || '');
+        setTodayPlan(extractTodayPlan(reportData.notes));
+        setWorkDone(extractWorkDone(reportData.notes));
         setBlockers(reportData.blockers || '');
         setTomorrowPlan(reportData.tomorrow_plan || '');
         setCompanyRequirements(reportData.company_requirements || '');
@@ -106,21 +112,13 @@ export const DailyTrackerPage: React.FC = () => {
           setUploadedEvidence(attachments);
         }
       } else {
-        // Look up yesterday's plan to auto-fill
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
-        
-        const { data: yData } = await supabase
-          .from('daily_reports')
-          .select('tomorrow_plan')
-          .eq('user_id', user.id)
-          .eq('report_date', yesterdayStr)
-          .maybeSingle();
-          
-        if (yData?.tomorrow_plan) {
-          setNotes(`Planned for today:\n${yData.tomorrow_plan}\n\nWork done:\n`);
-        }
+        setReportId(null);
+        setStatus('draft');
+        setTodayPlan(null);
+        setWorkDone('');
+        setBlockers('');
+        setTomorrowPlan('');
+        setCompanyRequirements('');
       }
 
     } catch (err: any) {
@@ -178,8 +176,37 @@ export const DailyTrackerPage: React.FC = () => {
     }
   };
 
+  const handleSignOut = async () => {
+    if (!user) return;
+    try {
+      setIsSigningOut(true);
+      await finalizeWorkdaySignOut(user.id);
+      navigate('/login', {
+        state: {
+          logoutSuccessMessage: 'Attendance captured successfully. You have been signed out.',
+        },
+      });
+    } catch (err: any) {
+      showError(err.message || 'Failed to sign out');
+      setIsSigningOut(false);
+    }
+  };
+
   const saveReport = async (submitAction: 'draft' | 'submitted') => {
     if (!user) return;
+
+    // Validate required fields when submitting
+    if (submitAction === 'submitted') {
+      if (!workDone.trim()) {
+        showError('Please complete your Work Completed & Accomplishments before submitting.');
+        return;
+      }
+      if (!tomorrowPlan.trim()) {
+        showError('Please complete your Plan for Tomorrow before submitting.');
+        return;
+      }
+    }
+
     try {
       setSubmitting(true);
       setError(null);
@@ -188,14 +215,15 @@ export const DailyTrackerPage: React.FC = () => {
       let currentReportId = reportId;
 
       // 1. Upsert daily_reports
+      const formattedNotes = formatReportNotes(todayPlan, workDone);
       const reportPayload = {
         user_id: user.id,
         report_date: today,
         status: submitAction,
-        notes,
-        blockers,
-        tomorrow_plan: tomorrowPlan,
-        company_requirements: companyRequirements,
+        notes: formattedNotes,
+        blockers: blockers.trim(),
+        tomorrow_plan: tomorrowPlan.trim() || null,
+        company_requirements: companyRequirements.trim(),
         submitted_at: submitAction === 'submitted' ? new Date().toISOString() : null
       };
 
@@ -280,9 +308,7 @@ export const DailyTrackerPage: React.FC = () => {
       setStatus(submitAction);
       
       if (submitAction === 'submitted') {
-        showSuccess('Daily report submitted successfully!');
-        const targetDashboard = role === 'Intern' ? '/app/intern/dashboard' : '/app/dashboard';
-        navigate(targetDashboard);
+        showSuccess('Daily Summary submitted successfully.');
       } else {
         showSuccess('Draft saved successfully');
       }
@@ -303,9 +329,25 @@ export const DailyTrackerPage: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
+      {location.state?.requiredForLogout && !isLocked && (
+        <div 
+          id="logout-blocked-alert"
+          data-testid="logout-blocked-alert"
+          className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm flex items-start gap-3 shadow-xs"
+        >
+          <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold text-amber-900">Please complete your Daily Summary before logging out.</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              All employees and interns must submit their daily accomplishments and plan before signing out of the system.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-content flex items-center gap-2">
-          <FileText className="h-6 w-6 text-primary" /> Daily Work Tracker
+          <FileText className="h-6 w-6 text-primary" /> Daily Summary & Operational Planning
         </h1>
         {isLocked && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-status-success/10 text-status-success rounded-full text-sm font-medium border border-status-success/20">
@@ -315,8 +357,32 @@ export const DailyTrackerPage: React.FC = () => {
       </div>
 
       {isLocked && (
-        <div className="bg-surface-muted border border-border p-4 rounded-lg text-sm text-content-muted">
-          Your daily report has been submitted and is now locked for review. If you need to make changes, please contact your manager.
+        <div 
+          id="daily-summary-submitted-card"
+          data-testid="daily-summary-submitted-card"
+          className="p-5 bg-gradient-to-r from-emerald-50 to-teal-50/50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm"
+        >
+          <div className="flex items-center gap-3.5 text-center sm:text-left">
+            <div className="p-3 rounded-xl bg-emerald-100 text-emerald-700 shrink-0">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-emerald-950">Daily Summary submitted successfully.</h3>
+              <p className="text-xs text-emerald-800 mt-0.5">
+                Your work summary is locked and recorded. Click Sign Out to finalize attendance and end your work session.
+              </p>
+            </div>
+          </div>
+          <Button
+            id="tracker-sign-out-button"
+            data-testid="tracker-sign-out-button"
+            onClick={handleSignOut}
+            isLoading={isSigningOut}
+            disabled={isSigningOut}
+            className="w-full sm:w-auto px-6 py-2.5 gap-2 font-semibold shadow-sm shrink-0 cursor-pointer"
+          >
+            <LogOut className="h-4 w-4" /> Sign Out
+          </Button>
         </div>
       )}
 
@@ -433,44 +499,83 @@ export const DailyTrackerPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Narrative Fields */}
+      {/* Narrative & Plan Fields */}
       <Card>
         <CardHeader>
-          <CardTitle>Daily Summary</CardTitle>
+          <CardTitle>Daily Summary & Operational Planning</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
+          {/* Today's Plan Section (Morning Check-In) */}
           <div>
-            <label className="block text-sm font-medium text-content mb-1">General Notes & Completed Work</label>
-            <p className="text-xs text-content-muted mb-2">Summarize any other work completed today.</p>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-sm font-semibold text-content flex items-center gap-1.5">
+                <Target className="h-4 w-4 text-primary" /> Today's Plan
+              </label>
+              {todayPlan && (
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                  Morning Check-In
+                </span>
+              )}
+            </div>
+            {todayPlan ? (
+              <div 
+                className="p-3.5 bg-primary/5 border border-primary/20 rounded-lg text-content text-sm font-medium whitespace-pre-wrap"
+                data-testid="tracker-today-plan"
+              >
+                {todayPlan}
+              </div>
+            ) : (
+              <div 
+                className="p-3.5 bg-surface-muted border border-border rounded-lg text-content-muted text-sm italic"
+                data-testid="tracker-today-plan-empty"
+              >
+                No morning check-in plan recorded for today.
+              </div>
+            )}
+          </div>
+
+          {/* Work Completed */}
+          <div>
+            <label className="block text-sm font-medium text-content mb-1">
+              Work Completed & Accomplishments <span className="text-status-danger">*</span>
+            </label>
+            <p className="text-xs text-content-muted mb-2">Summarize the work, tasks, and accomplishments completed today (required for daily summary).</p>
             <textarea
               className="w-full h-32 bg-surface border border-border rounded-md px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-60 resize-none"
-              placeholder="What else did you accomplish?"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              placeholder="What did you accomplish today? Summarize completed tasks and milestones..."
+              value={workDone}
+              onChange={(e) => setWorkDone(e.target.value)}
               disabled={isLocked}
+              data-testid="tracker-work-completed-input"
             />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-content mb-1">Blockers & Challenges</label>
-              <textarea
-                className="w-full h-24 bg-surface border border-border rounded-md px-4 py-3 text-sm focus:border-primary disabled:opacity-60 resize-none"
-                placeholder="Anything slowing you down?"
-                value={blockers}
-                onChange={(e) => setBlockers(e.target.value)}
-                disabled={isLocked}
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-content mb-1">Plan for Tomorrow</label>
+              <label className="block text-sm font-medium text-content mb-1 flex items-center gap-1.5">
+                <Clock className="h-4 w-4 text-primary" /> Plan for Tomorrow <span className="text-status-danger">*</span>
+              </label>
+              <p className="text-xs text-content-muted mb-1.5">Explicitly plan future tasks (required for daily summary).</p>
               <textarea
                 className="w-full h-24 bg-surface border border-border rounded-md px-4 py-3 text-sm focus:border-primary disabled:opacity-60 resize-none"
                 placeholder="What will you work on tomorrow?"
                 value={tomorrowPlan}
                 onChange={(e) => setTomorrowPlan(e.target.value)}
                 disabled={isLocked}
+                data-testid="tracker-tomorrow-plan-input"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-content mb-1">Blockers & Challenges</label>
+              <p className="text-xs text-content-muted mb-1.5">Any impediments or technical roadblocks.</p>
+              <textarea
+                className="w-full h-24 bg-surface border border-border rounded-md px-4 py-3 text-sm focus:border-primary disabled:opacity-60 resize-none"
+                placeholder="Anything slowing you down?"
+                value={blockers}
+                onChange={(e) => setBlockers(e.target.value)}
+                disabled={isLocked}
+                data-testid="tracker-blockers-input"
               />
             </div>
           </div>
@@ -480,10 +585,11 @@ export const DailyTrackerPage: React.FC = () => {
             <input
               type="text"
               className="w-full bg-surface border border-border rounded-md px-4 py-2 text-sm focus:border-primary disabled:opacity-60"
-              placeholder="E.g., Requested new software license, leave notice, etc."
+              placeholder="E.g., Requested new software license, leave notice, hardware request, etc."
               value={companyRequirements}
               onChange={(e) => setCompanyRequirements(e.target.value)}
               disabled={isLocked}
+              data-testid="tracker-requirements-input"
             />
           </div>
         </CardContent>

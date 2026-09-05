@@ -22,13 +22,13 @@ test.describe('Phase 6 — Notifications & Communication Intelligence', () => {
     const { data: empProfile } = await adminSupabase
       .from('profiles')
       .select('id, email')
-      .eq('email', 'employee@scaro.com')
+      .eq('email', 'employee@scaro.in')
       .single();
 
     const { data: adminProfile } = await adminSupabase
       .from('profiles')
       .select('id, email')
-      .eq('email', 'admin@scaro.com')
+      .eq('email', 'admin@scaro.in')
       .single();
 
     employeeUser = empProfile!;
@@ -136,7 +136,7 @@ test.describe('Phase 6 — Notifications & Communication Intelligence', () => {
   test('Case 3: RLS Policy Security Enforcement', async () => {
     // 1. Sign in as employee on anon client
     const { data: authData, error: authErr } = await anonSupabase.auth.signInWithPassword({
-      email: 'employee@scaro.com',
+      email: 'employee@scaro.in',
       password: 'Scaro@Employee2026!',
     });
     expect(authErr).toBeNull();
@@ -209,7 +209,7 @@ test.describe('Phase 6 — Notifications & Communication Intelligence', () => {
 
     // 2. Log in as employee
     await page.goto('/login');
-    await page.fill('input[type="email"]', 'employee@scaro.com');
+    await page.fill('input[type="email"]', 'employee@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Employee2026!');
     await page.click('button[type="submit"]');
 

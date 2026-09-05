@@ -9,7 +9,7 @@ const client = createClient(supabaseUrl, anonKey);
 
 async function test() {
   const { data: authData, error: loginErr } = await client.auth.signInWithPassword({
-    email: 'madhan@scaro.com',
+    email: 'madhan@scaro.in',
     password: 'Scaro@Madhan2026!'
   });
   if (loginErr) {

@@ -22,6 +22,7 @@ import { PeoplePage } from './pages/people/PeoplePage';
 import { AnnouncementsPage } from './pages/announcements/AnnouncementsPage';
 import { AuditLogsPage } from './pages/admin/AuditLogsPage';
 import { CompanySettingsPage } from './pages/admin/CompanySettingsPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 import { DailyCheckinInterceptor } from './components/DailyCheckinInterceptor';
 
 function App() {
@@ -71,10 +72,16 @@ function App() {
                 <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="announcements" element={<AnnouncementsPage />} />
+
+                {/* App Sub-route 404 */}
+                <Route path="*" element={<NotFoundPage />} />
               </Route>
               {/* Root redirect to generic dashboard which ProtectedRoute handles via fallback */}
               <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
             </Route>
+
+            {/* Global 404 Catch-All */}
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </BrowserRouter>
       </ToastProvider>

@@ -5,7 +5,7 @@ test.describe.serial('Phase 5B - Management Intelligence & Daily Work Control', 
 
   test('1. Super Admin Dashboard & Management Modules', async ({ page }) => {
     await page.goto('/');
-    await page.fill('input[type="email"]', 'admin@scaro.com');
+    await page.fill('input[type="email"]', 'admin@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Admin2026!');
     await page.click('button[type="submit"]');
 
@@ -33,7 +33,7 @@ test.describe.serial('Phase 5B - Management Intelligence & Daily Work Control', 
 
   test('2. Admin Dashboard & Operational Scope', async ({ page }) => {
     await page.goto('/');
-    await page.fill('input[type="email"]', 'manager@scaro.com');
+    await page.fill('input[type="email"]', 'manager@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Manager2026!');
     await page.click('button[type="submit"]');
 
@@ -54,7 +54,7 @@ test.describe.serial('Phase 5B - Management Intelligence & Daily Work Control', 
   test('3. Employee & Intern Role Isolation (No Management Dashboard Access)', async ({ page }) => {
     // Login as Employee
     await page.goto('/');
-    await page.fill('input[type="email"]', 'employee@scaro.com');
+    await page.fill('input[type="email"]', 'employee@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Employee2026!');
     await page.click('button[type="submit"]');
 
@@ -81,7 +81,7 @@ test.describe.serial('Phase 5B - Management Intelligence & Daily Work Control', 
 
   test('4. Daily Reports Management List, Filters, Pagination, and Detail', async ({ page }) => {
     await page.goto('/');
-    await page.fill('input[type="email"]', 'admin@scaro.com');
+    await page.fill('input[type="email"]', 'admin@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Admin2026!');
     await page.click('button[type="submit"]');
 
@@ -115,7 +115,7 @@ test.describe.serial('Phase 5B - Management Intelligence & Daily Work Control', 
 
   test('5. Project Activity Overview', async ({ page }) => {
     await page.goto('/');
-    await page.fill('input[type="email"]', 'admin@scaro.com');
+    await page.fill('input[type="email"]', 'admin@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Admin2026!');
     await page.click('button[type="submit"]');
 

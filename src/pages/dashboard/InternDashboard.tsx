@@ -7,6 +7,7 @@ import { CheckSquare, Calendar, BookOpen, Clock, ArrowRight, Target, LogIn } fro
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../features/auth/AuthContext';
 import { Link } from 'react-router-dom';
+import { extractTodayPlan } from '../../utils/dailyReport';
 
 interface InternDashboardData {
   hasClockedIn: boolean;
@@ -51,10 +52,8 @@ export const InternDashboard: React.FC = () => {
 
         if (repErr) throw repErr;
 
-        let planText = reportData?.tomorrow_plan || null;
-        if (!planText && reportData?.notes?.startsWith("Today's Plan: ")) {
-          planText = reportData.notes.replace("Today's Plan: ", "");
-        }
+        // Extract today's morning plan strictly from notes
+        const planText = extractTodayPlan(reportData?.notes);
 
         // 3. Count Pending Tasks
         const { count: pendingTasks, error: taskErr } = await supabase

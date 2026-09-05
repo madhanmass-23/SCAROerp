@@ -41,6 +41,7 @@ export interface Task {
   comments_count?: number;
   attachments_count?: number;
   is_overdue?: boolean;
+  is_due_today?: boolean;
 }
 
 export interface TaskComment {
@@ -102,6 +103,8 @@ export interface TaskFilterParams {
   priority?: TaskPriority | 'All';
   assigneeId?: string;
   isOverdue?: boolean;
+  isDueToday?: boolean;
+  dateFilter?: 'All' | 'Due Today' | 'Overdue' | 'Upcoming';
   searchQuery?: string;
 }
 

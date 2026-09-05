@@ -29,19 +29,19 @@ test.describe('Phase 8 — Projects & Task Management Intelligence', () => {
     const { data: empProfile } = await adminSupabase
       .from('profiles')
       .select('id, email')
-      .eq('email', 'employee@scaro.com')
+      .eq('email', 'employee@scaro.in')
       .single();
 
     const { data: admProfile } = await adminSupabase
       .from('profiles')
       .select('id, email')
-      .eq('email', 'admin@scaro.com')
+      .eq('email', 'admin@scaro.in')
       .single();
 
     const { data: intProfile } = await adminSupabase
       .from('profiles')
       .select('id, email')
-      .eq('email', 'intern@scaro.com')
+      .eq('email', 'intern@scaro.in')
       .single();
 
     employeeUser = empProfile!;
@@ -51,13 +51,13 @@ test.describe('Phase 8 — Projects & Task Management Intelligence', () => {
     // 2. Initialize authenticated Supabase clients
     employeeClient = createClient(supabaseUrl, anonKey);
     await employeeClient.auth.signInWithPassword({
-      email: 'employee@scaro.com',
+      email: 'employee@scaro.in',
       password: 'Scaro@Employee2026!',
     });
 
     adminClient = createClient(supabaseUrl, anonKey);
     await adminClient.auth.signInWithPassword({
-      email: 'admin@scaro.com',
+      email: 'admin@scaro.in',
       password: 'Scaro@Admin2026!',
     });
 
@@ -466,7 +466,7 @@ test.describe('Phase 8 — Projects & Task Management Intelligence', () => {
   test('Case 11: Playwright UI End-to-End: Admin Projects & Task Creation Flow', async ({ page }) => {
     // 1. Login as Admin
     await page.goto('/login');
-    await page.fill('input[type="email"]', 'admin@scaro.com');
+    await page.fill('input[type="email"]', 'admin@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Admin2026!');
     await page.click('button[type="submit"]');
     await page.waitForURL('**/app/**', { timeout: 15000 });
@@ -552,7 +552,7 @@ test.describe('Phase 8 — Projects & Task Management Intelligence', () => {
 
     // 2. Login as Employee
     await page.goto('/login');
-    await page.fill('input[type="email"]', 'employee@scaro.com');
+    await page.fill('input[type="email"]', 'employee@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Employee2026!');
     await page.click('button[type="submit"]');
     await page.waitForURL('**/app/**', { timeout: 15000 });

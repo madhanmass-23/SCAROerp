@@ -5,7 +5,7 @@ test.describe.serial('Phase 4 QA - Daily Work Tracker', () => {
   test('Employee Tracker Flow', async ({ page }) => {
     // 1. Login as Employee
     await page.goto('/');
-    await page.fill('input[type="email"]', 'employee@scaro.com');
+    await page.fill('input[type="email"]', 'employee@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Employee2026!');
     await page.click('button[type="submit"]');
 
@@ -111,7 +111,7 @@ test.describe.serial('Phase 4 QA - Daily Work Tracker', () => {
   test('Intern Tracker Flow', async ({ page }) => {
     // 1. Login as Intern
     await page.goto('/');
-    await page.fill('input[type="email"]', 'intern@scaro.com');
+    await page.fill('input[type="email"]', 'intern@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Intern2026!');
     await page.click('button[type="submit"]');
 
@@ -169,7 +169,7 @@ test.describe.serial('Phase 4 QA - Daily Work Tracker', () => {
   test('Admin Review', async ({ page }) => {
     // Login as Admin
     await page.goto('/');
-    await page.fill('input[type="email"]', 'manager@scaro.com');
+    await page.fill('input[type="email"]', 'manager@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Manager2026!');
     await page.click('button[type="submit"]');
 
@@ -187,7 +187,7 @@ test.describe.serial('Phase 4 QA - Daily Work Tracker', () => {
   test('Super Admin Review', async ({ page }) => {
     // Login as Super Admin
     await page.goto('/');
-    await page.fill('input[type="email"]', 'admin@scaro.com');
+    await page.fill('input[type="email"]', 'admin@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Admin2026!');
     await page.click('button[type="submit"]');
 

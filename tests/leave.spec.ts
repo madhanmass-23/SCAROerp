@@ -25,19 +25,19 @@ test.describe('Phase 7 — Leave & Basic HR Operations', () => {
     const { data: empProfile } = await adminSupabase
       .from('profiles')
       .select('id, email')
-      .eq('email', 'employee@scaro.com')
+      .eq('email', 'employee@scaro.in')
       .single();
 
     const { data: admProfile } = await adminSupabase
       .from('profiles')
       .select('id, email')
-      .eq('email', 'admin@scaro.com')
+      .eq('email', 'admin@scaro.in')
       .single();
 
     const { data: intProfile } = await adminSupabase
       .from('profiles')
       .select('id, email')
-      .eq('email', 'intern@scaro.com')
+      .eq('email', 'intern@scaro.in')
       .single();
 
     employeeUser = empProfile!;
@@ -47,14 +47,14 @@ test.describe('Phase 7 — Leave & Basic HR Operations', () => {
     // 2. Initialize authenticated Supabase clients for Employee and Admin
     employeeClient = createClient(supabaseUrl, anonKey);
     const { error: empLoginErr } = await employeeClient.auth.signInWithPassword({
-      email: 'employee@scaro.com',
+      email: 'employee@scaro.in',
       password: 'Scaro@Employee2026!',
     });
     if (empLoginErr) console.warn('Employee sign-in warning:', empLoginErr.message);
 
     adminClient = createClient(supabaseUrl, anonKey);
     const { error: admLoginErr } = await adminClient.auth.signInWithPassword({
-      email: 'admin@scaro.com',
+      email: 'admin@scaro.in',
       password: 'Scaro@Admin2026!',
     });
     if (admLoginErr) console.warn('Admin sign-in warning:', admLoginErr.message);
@@ -333,7 +333,7 @@ test.describe('Phase 7 — Leave & Basic HR Operations', () => {
   test('Case 8: Playwright UI End-to-End Workflow', async ({ page }) => {
     // 1. Log in as employee
     await page.goto('/login');
-    await page.fill('input[type="email"]', 'employee@scaro.com');
+    await page.fill('input[type="email"]', 'employee@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Employee2026!');
     await page.click('button[type="submit"]');
     await page.waitForURL('**/app/dashboard');
@@ -381,7 +381,7 @@ test.describe('Phase 7 — Leave & Basic HR Operations', () => {
   test('Case 9: Playwright UI Admin Management View & Privacy', async ({ page }) => {
     // 1. Log in as admin
     await page.goto('/login');
-    await page.fill('input[type="email"]', 'admin@scaro.com');
+    await page.fill('input[type="email"]', 'admin@scaro.in');
     await page.fill('input[type="password"]', 'Scaro@Admin2026!');
     await page.click('button[type="submit"]');
     await page.waitForURL(/\/app\/admin\/(overview|dashboard)/);

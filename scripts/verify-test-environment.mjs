@@ -24,34 +24,34 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 
 const EXPECTED_USERS = [
   // 10 Interns
-  { name: 'Maheswari', email: 'maheswari@scaro.com', role: 'Intern', status: 'Intern' },
-  { name: 'Nikitha', email: 'nikitha@scaro.com', role: 'Intern', status: 'Intern' },
-  { name: 'Krishna Veni', email: 'krishnaveni@scaro.com', role: 'Intern', status: 'Intern' },
-  { name: 'Revati', email: 'revati@scaro.com', role: 'Intern', status: 'Intern' },
-  { name: 'Thanmayee', email: 'thanmayee@scaro.com', role: 'Intern', status: 'Intern' },
-  { name: 'Ruchitha', email: 'ruchitha@scaro.com', role: 'Intern', status: 'Intern' },
-  { name: 'Rupeswari', email: 'rupeswari@scaro.com', role: 'Intern', status: 'Intern' },
-  { name: 'Thoyaja', email: 'thoyaja@scaro.com', role: 'Intern', status: 'Intern' },
-  { name: 'Amani', email: 'amani@scaro.com', role: 'Intern', status: 'Intern' },
-  { name: 'Divya', email: 'divya@scaro.com', role: 'Intern', status: 'Intern' },
+  { name: 'Maheswari', email: 'maheswari@scaro.in', role: 'Intern', status: 'Intern' },
+  { name: 'Nikitha', email: 'nikitha@scaro.in', role: 'Intern', status: 'Intern' },
+  { name: 'Krishna Veni', email: 'krishnaveni@scaro.in', role: 'Intern', status: 'Intern' },
+  { name: 'Revati', email: 'revati@scaro.in', role: 'Intern', status: 'Intern' },
+  { name: 'Thanmayee', email: 'thanmayee@scaro.in', role: 'Intern', status: 'Intern' },
+  { name: 'Ruchitha', email: 'ruchitha@scaro.in', role: 'Intern', status: 'Intern' },
+  { name: 'Rupeswari', email: 'rupeswari@scaro.in', role: 'Intern', status: 'Intern' },
+  { name: 'Thoyaja', email: 'thoyaja@scaro.in', role: 'Intern', status: 'Intern' },
+  { name: 'Amani', email: 'amani@scaro.in', role: 'Intern', status: 'Intern' },
+  { name: 'Divya', email: 'divya@scaro.in', role: 'Intern', status: 'Intern' },
 
   // 3 Employees
-  { name: 'Madhan', email: 'madhan@scaro.com', role: 'Employee', status: 'Employee' },
-  { name: 'Elumalai', email: 'elumalai@scaro.com', role: 'Employee', status: 'Employee' },
-  { name: 'Pavan Kumar', email: 'pavankumar@scaro.com', role: 'Employee', status: 'Employee' },
+  { name: 'Madhan', email: 'madhan@scaro.in', role: 'Employee', status: 'Employee' },
+  { name: 'Elumalai', email: 'elumalai@scaro.in', role: 'Employee', status: 'Employee' },
+  { name: 'Pavan Kumar', email: 'pavankumar@scaro.in', role: 'Employee', status: 'Employee' },
 
   // 1 Admin
-  { name: 'Kumar', email: 'kumar@scaro.com', role: 'Admin', status: 'Employee' },
+  { name: 'Kumar', email: 'kumar@scaro.in', role: 'Admin', status: 'Employee' },
 
   // 1 Super Admin
-  { name: 'Satish Kumar', email: 'satishkumar@scaro.com', role: 'Super Admin', status: 'Employee' }
+  { name: 'Satish Kumar', email: 'satishkumar@scaro.in', role: 'Super Admin', status: 'Employee' }
 ];
 
 const OLD_EMAILS = [
-  'intern@scaro.com',
-  'employee@scaro.com',
-  'manager@scaro.com',
-  'admin@scaro.com'
+  'intern@scaro.in',
+  'employee@scaro.in',
+  'manager@scaro.in',
+  'admin@scaro.in'
 ];
 
 async function verifyEnvironment() {
@@ -71,7 +71,7 @@ async function verifyEnvironment() {
   if (foundOld.length > 0) {
     console.error(`  FAIL: Found old development accounts:`, foundOld.map(u => u.email));
   } else {
-    console.log(`  PASS: No old development accounts found (intern@scaro.com is absent)`);
+    console.log(`  PASS: No old development accounts found`);
   }
 
   // 2. Fetch Profiles

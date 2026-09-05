@@ -7,7 +7,7 @@
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0f172a",
-  "theme_color": "#4f46e5",
+  "theme_color": "#7B1113",
   "icons": [
     {
       "src": "/assets/scaro-logo.png",

@@ -16,16 +16,16 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const INTERN_EMAILS = [
-  'maheswari@scaro.com',
-  'nikitha@scaro.com',
-  'krishnaveni@scaro.com',
-  'revati@scaro.com',
-  'thanmayee@scaro.com',
-  'ruchitha@scaro.com',
-  'rupeswari@scaro.com',
-  'thoyaja@scaro.com',
-  'amani@scaro.com',
-  'divya@scaro.com'
+  'maheswari@scaro.in',
+  'nikitha@scaro.in',
+  'krishnaveni@scaro.in',
+  'revati@scaro.in',
+  'thanmayee@scaro.in',
+  'ruchitha@scaro.in',
+  'rupeswari@scaro.in',
+  'thoyaja@scaro.in',
+  'amani@scaro.in',
+  'divya@scaro.in'
 ];
 
 async function updateInternStatus() {
@@ -33,7 +33,7 @@ async function updateInternStatus() {
   // Sign in as Super Admin to satisfy `is_super_admin(auth.uid())` in restrict_profile_updates trigger!
   const anonClient = createClient(supabaseUrl, process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '');
   const { data: authResult, error: signInErr } = await anonClient.auth.signInWithPassword({
-    email: 'satishkumar@scaro.com',
+    email: 'satishkumar@scaro.in',
     password: 'Scaro@SatishKumar2026!'
   });
 

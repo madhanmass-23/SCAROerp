@@ -17,11 +17,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../features/auth/AuthContext';
 import { Drawer } from './Drawer';
-import { supabase } from '../../lib/supabase';
 import { cn } from './Button';
+import { useToast } from './Toast';
+import { executeAppLogout } from '../../services/authWorkflowService';
 
 export const MobileBottomNav: React.FC = () => {
   const { user, profile, role } = useAuth();
+  const { showError } = useToast();
   const navigate = useNavigate();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
@@ -37,8 +39,12 @@ export const MobileBottomNav: React.FC = () => {
 
   const handleLogout = async () => {
     setIsMoreOpen(false);
-    await supabase.auth.signOut();
-    navigate('/login');
+    await executeAppLogout({
+      userId: user?.id,
+      role,
+      navigate,
+      onBlockLogout: (msg) => showError(msg),
+    });
   };
 
   const navItemClass = ({ isActive }: { isActive: boolean }) => cn(
@@ -69,7 +75,7 @@ export const MobileBottomNav: React.FC = () => {
 
         <NavLink to="/app/attendance" className={navItemClass}>
           <Calendar className="h-5 w-5 mb-0.5" />
-          <span>Attendance</span>
+          <span>Work Time</span>
         </NavLink>
 
         <button 
@@ -240,7 +246,7 @@ export const MobileBottomNav: React.FC = () => {
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-status-danger hover:bg-red-50 transition-colors text-left"
           >
-            <LogOut className="h-4 w-4" /> Sign Out
+            <LogOut className="h-4 w-4" /> Logout
           </button>
         </div>
       </Drawer>

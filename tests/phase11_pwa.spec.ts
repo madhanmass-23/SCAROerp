@@ -9,13 +9,13 @@ dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 const USERS = {
   employee: {
-    email: 'madhan@scaro.com',
+    email: 'madhan@scaro.in',
     pass: 'Scaro@Madhan2026!',
     expectedRoute: '/app/dashboard',
     role: 'Employee'
   },
   intern: {
-    email: 'maheswari@scaro.com',
+    email: 'maheswari@scaro.in',
     pass: 'Scaro@Maheswari2026!',
     expectedRoute: '/app/intern/dashboard',
     role: 'Intern'
@@ -77,7 +77,7 @@ test.describe('Phase 11 — Production PWA Installation Verification', () => {
     expect(manifest.scope).toBe('/');
     expect(manifest.display).toBe('standalone');
     expect(manifest.background_color).toBe('#0f172a');
-    expect(manifest.theme_color).toBe('#4f46e5');
+    expect(manifest.theme_color).toBe('#7B1113');
 
     // Verify icons
     expect(manifest.icons.length).toBeGreaterThanOrEqual(2);
